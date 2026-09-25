@@ -1,0 +1,52 @@
+services:
+  stride:
+    build: .
+    image: stride:latest
+    container_name: stride
+
+    # ── Non-root: nginx user (uid=101, gid=101) in nginx:stable-alpine ──────
+    user: "101:101"
+
+    # ── Immutable filesystem; only whitelisted paths are writable ────────────
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:uid=101,gid=101,mode=755
+      - /var/run:uid=101,gid=101,mode=755
+      - /tmp:uid=101,gid=101,mode=1777
+
+    # ── Drop every Linux capability (no cap needed — port 8080 is unprivileged)
+    cap_drop: [ALL]
+
+    security_opt:
+      - "no-new-privileges:true"
+
+    # ── Resource limits (static SPA via nginx — very low overhead) ───────────
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          memory: 32M
+
+    # ── Expose container port 8080 on host port 80 ───────────────────────────
+    ports:
+      - "80:8080"
+
+    # ── Isolated bridge network ───────────────────────────────────────────────
+    networks:
+      - stride-net
+
+    # ── Health check using wget (available in nginx:stable-alpine) ───────────
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    restart: unless-stopped
+
+networks:
+  stride-net:
+    driver: bridge
