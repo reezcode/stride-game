@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { scenarios } from '@/data'
-import { XP_RULES } from '@/game/stride'
+import { XP_RULES, levelFor, maxResolveFor } from '@/game/stride'
 
 export type StrideCategory = 'S' | 'T' | 'R' | 'I' | 'D' | 'E'
 export type Severity = 'Critical' | 'High' | 'Medium' | 'Low'
@@ -49,6 +49,11 @@ export interface GameState {
   briefingSeen: boolean
   visitedRooms: string[]
   lastPos: { x: number; y: number } | null
+  prologueSeen: boolean
+  scenesSeen: string[]
+  wardensDown: string[]
+  resolve: number
+  finaleDone: boolean
 }
 
 const PLAYER_COLORS = [
@@ -97,6 +102,13 @@ export const useGameStore = defineStore('game', () => {
   const visitedRooms = ref<string[]>([])
   const lastPos      = ref<{ x: number; y: number } | null>(null)
 
+  // Story
+  const prologueSeen = ref(false)
+  const scenesSeen   = ref<string[]>([])
+  const wardensDown  = ref<string[]>([])
+  const resolve      = ref(maxResolveFor(1))
+  const finaleDone   = ref(false)
+
   // ── Computed ──
 
   const solvedCount = computed(() => cases.value.filter(c => c.solved).length)
@@ -104,6 +116,9 @@ export const useGameStore = defineStore('game', () => {
 
   const phase2Progress = computed(() => (completedModules.value.length / 6) * 100)
   const phase2Completed = computed(() => completedModules.value.length === 6)
+
+  const level      = computed(() => levelFor(totalXP.value))
+  const maxResolve = computed(() => maxResolveFor(level.value))
 
   const evidenceTotal = computed(() => scenarios.reduce((a, s) => a + s.details.length, 0))
   const evidenceCount = computed(() => cases.value.reduce((a, c) => a + c.evidenceFound.length, 0))
@@ -252,6 +267,41 @@ export const useGameStore = defineStore('game', () => {
     save()
   }
 
+  function markPrologueSeen() {
+    prologueSeen.value = true
+    save()
+  }
+
+  /** Returns true the first time a scene id is marked. */
+  function markScene(id: string) {
+    if (scenesSeen.value.includes(id)) return false
+    scenesSeen.value.push(id)
+    save()
+    return true
+  }
+
+  function defeatWarden(id: string) {
+    if (wardensDown.value.includes(id)) return
+    wardensDown.value.push(id)
+    totalXP.value += XP_RULES.warden
+    save()
+  }
+
+  function damage(n: number) {
+    resolve.value = Math.max(0, resolve.value - n)
+    save()
+  }
+
+  function restoreResolve() {
+    resolve.value = maxResolve.value
+    save()
+  }
+
+  function finishFinale() {
+    finaleDone.value = true
+    save()
+  }
+
   function resetGame() {
     playerName.value   = ''
     playerColor.value  = PLAYER_COLORS[0].hex
@@ -264,6 +314,11 @@ export const useGameStore = defineStore('game', () => {
     briefingSeen.value = false
     visitedRooms.value = []
     lastPos.value      = null
+    prologueSeen.value = false
+    scenesSeen.value   = []
+    wardensDown.value  = []
+    resolve.value      = maxResolveFor(1)
+    finaleDone.value   = false
     try { localStorage.removeItem('stride_game') } catch { /* noop */ }
   }
 
@@ -281,6 +336,11 @@ export const useGameStore = defineStore('game', () => {
         briefingSeen: briefingSeen.value,
         visitedRooms: visitedRooms.value,
         lastPos: lastPos.value,
+        prologueSeen: prologueSeen.value,
+        scenesSeen: scenesSeen.value,
+        wardensDown: wardensDown.value,
+        resolve: resolve.value,
+        finaleDone: finaleDone.value,
       }
       localStorage.setItem('stride_game', JSON.stringify(state))
     } catch { /* noop */ }
@@ -306,6 +366,11 @@ export const useGameStore = defineStore('game', () => {
       briefingSeen.value  = d.briefingSeen  ?? false
       visitedRooms.value  = d.visitedRooms  ?? []
       lastPos.value       = d.lastPos       ?? null
+      prologueSeen.value  = d.prologueSeen  ?? false
+      scenesSeen.value    = d.scenesSeen    ?? []
+      wardensDown.value   = d.wardensDown   ?? []
+      resolve.value       = Math.min(d.resolve ?? maxResolve.value, maxResolve.value)
+      finaleDone.value    = d.finaleDone    ?? false
     } catch { /* noop */ }
   }
 
@@ -313,10 +378,13 @@ export const useGameStore = defineStore('game', () => {
     playerName, playerColor, gameStarted, gameCompleted,
     totalXP, cases, completedModules, quizScores,
     briefingSeen, visitedRooms, lastPos,
+    prologueSeen, scenesSeen, wardensDown, resolve, finaleDone, level, maxResolve,
     solvedCount, allSolved, phase2Progress, phase2Completed,
     evidenceTotal, evidenceCount,
     overallAccuracy, letterGrade, strideCoverage,
     startGame, visitCase, visitRoom, findEvidence, useHint, solveCase, completeModule,
-    getCase, markBriefingSeen, setLastPos, resetGame, save, load,
+    getCase, markBriefingSeen, setLastPos,
+    markPrologueSeen, markScene, defeatWarden, damage, restoreResolve, finishFinale,
+    resetGame, save, load,
   }
 })

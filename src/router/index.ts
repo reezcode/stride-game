@@ -10,6 +10,12 @@ const router = createRouter({
       component: () => import('@/views/LobbyView.vue'),
     },
     {
+      path: '/prologue',
+      name: 'prologue',
+      component: () => import('@/views/PrologueView.vue'),
+      meta: { requiresGame: true },
+    },
+    {
       path: '/game',
       name: 'map',
       component: () => import('@/views/MapView.vue'),
@@ -47,7 +53,10 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresGame && !store.gameStarted) {
     return next('/')
   }
-  if (to.meta.requiresCompleted && !store.allSolved) {
+  if (to.name === 'map' && !store.prologueSeen) {
+    return next('/prologue')
+  }
+  if (to.meta.requiresCompleted && !(store.allSolved && store.finaleDone)) {
     return next('/game')
   }
   next()

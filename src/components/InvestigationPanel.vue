@@ -29,7 +29,7 @@
             <p class="lede">{{ scenario.context }}</p>
 
             <h3 class="h">
-              Field evidence
+              Clues from the room
               <span class="h-meta t-mono">{{ found.length }}/{{ scenario.details.length }} recovered</span>
             </h3>
             <ol class="evidence">
@@ -85,9 +85,10 @@
         <!-- ───────── Report ───────── -->
         <div v-else-if="tab === 'report'" class="report">
           <p class="lede">
-            Mark every STRIDE category that applies to this system, then describe each finding.
-            A correct category earns <b>+{{ XP_RULES.correct }}</b>, matching the severity adds <b>+{{ XP_RULES.severityMatch }}</b>,
-            and a category that does not apply costs <b>{{ XP_RULES.falsePositive }}</b>.
+            Put on record what this system let someone do to her. Mark every kind of harm that applies, then say
+            in your own words what happened. Each one you get right earns <b>+{{ XP_RULES.correct }}</b>, judging how
+            serious it was adds <b>+{{ XP_RULES.severityMatch }}</b>, and an accusation that does not hold
+            costs <b>{{ XP_RULES.falsePositive }}</b>. A record with a wrong claim in it is easier to throw out.
           </p>
 
           <div class="picker">
@@ -98,8 +99,8 @@
               @click="toggle(c.letter)">
               <span class="pick-letter">{{ c.letter }}</span>
               <span class="pick-text">
-                <span class="pick-name">{{ c.name }}</span>
-                <span class="pick-q">{{ c.question }}</span>
+                <span class="pick-name">{{ c.question }}</span>
+                <span class="pick-q">{{ c.name }}</span>
               </span>
               <IconCheck v-if="selected.includes(c.letter)" class="pick-check" :size="18" stroke-width="2.4" />
             </button>
@@ -113,10 +114,15 @@
 
         <!-- ───────── Findings ───────── -->
         <div v-else-if="tab === 'findings' && caseState" class="findings">
+          <blockquote v-if="fragment" class="draft">
+            <div class="t-label draft-k">Laras · draft, never sent</div>
+            <p>{{ fragment.draft }}</p>
+            <footer><b>You can now prove:</b> {{ proof?.text }}</footer>
+          </blockquote>
           <div class="score-row">
             <div>
               <div class="big t-display" :style="{ color: scoreColor }">{{ caseState.score }}%</div>
-              <div class="muted">of threats identified</div>
+              <div class="muted">of what was done here, on record</div>
             </div>
             <table class="xp-table t-mono">
               <tbody>
@@ -128,7 +134,7 @@
             </table>
           </div>
 
-          <h3 class="h">Expected findings</h3>
+          <h3 class="h">What this system allowed</h3>
           <div v-for="gt in scenario.groundTruth" :key="gt.category + gt.title"
             :class="['truth', caseState.correct.includes(gt.category) ? 'hit' : 'miss']"
             :style="{ '--cat': STRIDE_BY[gt.category].color }">
@@ -168,12 +174,12 @@
 
       <footer class="foot">
         <template v-if="caseState?.solved">
-          <span class="muted">This case is closed. Its room is back online.</span>
+          <span class="muted">This case is sealed. Nobody can wipe it now.</span>
           <button class="btn btn-ink" @click="$emit('close')">Return to the floor</button>
         </template>
         <template v-else-if="tab === 'evidence'">
-          <span class="muted">{{ found.length < scenario.details.length ? 'You can file now, or keep searching for evidence.' : 'All field evidence recovered.' }}</span>
-          <button class="btn btn-ink" @click="tab = 'report'">Write the report <IconArrowRight :size="16" /></button>
+          <span class="muted">{{ found.length < scenario.details.length ? 'You can seal it now, or keep searching the room.' : 'Every clue in the room recovered.' }}</span>
+          <button class="btn btn-ink" @click="tab = 'report'">Put it on record <IconArrowRight :size="16" /></button>
         </template>
         <template v-else>
           <span class="muted">{{ submitHint }}</span>
@@ -194,6 +200,7 @@ import { scenarios } from '@/data'
 import { interactables, rooms } from '@/game/world'
 import { STRIDE, STRIDE_BY, XP_RULES } from '@/game/stride'
 import { sfx } from '@/game/audio'
+import { fragments, proofById } from '@/data/story'
 import ConcernCard from './ConcernCard.vue'
 
 const props = defineProps<{ scenarioId: string }>()
@@ -204,6 +211,8 @@ const scenario  = computed(() => scenarios.find(s => s.id === props.scenarioId)!
 const caseState = computed(() => store.getCase(props.scenarioId))
 const roomName  = computed(() => rooms.find(r => r.scenarioId === props.scenarioId)?.name ?? '')
 const found     = computed(() => caseState.value?.evidenceFound ?? [])
+const fragment  = computed(() => fragments[props.scenarioId])
+const proof     = computed(() => proofById[props.scenarioId])
 const hintsShown = computed(() => scenario.value.hints.slice(0, caseState.value?.hintsUsed ?? 0))
 
 type Tab = 'evidence' | 'report' | 'findings'
@@ -214,10 +223,10 @@ watch(tab, () => bodyEl.value?.scrollTo({ top: 0 }))
 
 const tabs = computed(() => {
   const list: { id: Tab; label: string; badge?: string }[] = [
-    { id: 'evidence', label: 'Evidence', badge: `${found.value.length}/${scenario.value.details.length}` },
+    { id: 'evidence', label: 'Clues', badge: `${found.value.length}/${scenario.value.details.length}` },
   ]
   if (caseState.value?.solved) list.push({ id: 'findings', label: 'Findings' })
-  else list.push({ id: 'report', label: 'Report', badge: selected.value.length ? String(selected.value.length) : undefined })
+  else list.push({ id: 'report', label: 'Record', badge: selected.value.length ? String(selected.value.length) : undefined })
   return list
 })
 
@@ -252,7 +261,7 @@ const canSubmit = computed(() =>
   selected.value.every(cat => (concerns.value[cat]?.title ?? '').trim().length > 0),
 )
 const submitHint = computed(() => {
-  if (!selected.value.length) return 'Select at least one category.'
+  if (!selected.value.length) return 'Mark at least one kind of harm.'
   const missing = selected.value.filter(c => !(concerns.value[c]?.title ?? '').trim()).length
   return missing ? `${missing} finding${missing > 1 ? 's' : ''} still need a title.` : 'Ready to file.'
 })
@@ -448,11 +457,23 @@ onUnmounted(() => { window.removeEventListener('keydown', onKey, true); sfx.clos
   flex-shrink: 0;
 }
 .pick-text { display: grid; gap: 2px; }
-.pick-name { font-weight: 700; font-size: 14px; }
-.pick-q { font-size: 12.5px; color: var(--color-pen-3); line-height: 1.4; }
+.pick-name { font-weight: 600; font-size: 14px; line-height: 1.35; padding-right: 20px; }
+.pick-q { font-size: 12px; color: var(--cat); font-weight: 600; }
 .pick-check { position: absolute; top: 10px; right: 10px; color: var(--cat); }
 
 .concerns { display: grid; gap: 12px; margin-top: 18px; }
+
+.draft {
+  margin: 16px 0 4px;
+  padding: 14px 16px;
+  background: #FBF8F1;
+  border: 1px solid var(--color-paper-line);
+  border-left: 4px solid #E2B33C;
+  border-radius: 3px;
+}
+.draft-k { color: var(--color-pen-3); }
+.draft p { margin: 8px 0 10px; font-size: 16px; line-height: 1.55; font-style: italic; }
+.draft footer { font-size: 13px; line-height: 1.5; color: var(--color-pen-2); padding-top: 10px; border-top: 1px dashed var(--color-paper-line); }
 
 .findings .score-row {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px;

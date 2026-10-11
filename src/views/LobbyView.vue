@@ -7,43 +7,41 @@
       <section class="intro anim-rise">
         <div class="t-label kicker">PayVault HQ · 14th floor · 02:14</div>
         <h1 class="t-display wordmark">STRIDE</h1>
-        <div class="t-display subtitle">Security Detective</div>
+        <div class="t-display subtitle">Six things they did to her</div>
         <p class="pitch">
-          Five systems were breached tonight. Walk the floor with a flashlight, recover the evidence
-          left behind, and file a STRIDE threat report at each terminal.
+          Your sister is gone, and nobody can tell you why. Her last message says it started inside the
+          company you work for. Tonight someone is on the 14th floor erasing the proof, and they have left
+          guards behind.
         </p>
-
-        <ul class="legend">
-          <li v-for="s in STRIDE" :key="s.letter">
-            <span class="legend-l" :style="{ color: s.color }">{{ s.letter }}</span>{{ s.name }}
-          </li>
-        </ul>
+        <p class="pitch pitch-2">
+          Walk the dark floor, find what the wipe has not reached, break the wardens, and name the person who did it.
+        </p>
       </section>
 
       <section class="card paper anim-rise" style="animation-delay: .08s">
         <template v-if="hasSave && !startingOver">
-          <div class="t-label card-k">Shift in progress</div>
+          <div class="t-label card-k">Night in progress</div>
           <div class="resume">
             <DetectiveAvatar :color="store.playerColor" :size="64" />
             <div>
               <div class="resume-name">{{ store.playerName }}</div>
               <div class="resume-meta">
-                {{ store.solvedCount }}/5 cases closed · {{ store.evidenceCount }}/{{ store.evidenceTotal }} evidence ·
-                {{ store.totalXP.toLocaleString() }} XP
+                Level {{ store.level }} · {{ store.solvedCount }}/5 cases sealed ·
+                {{ store.evidenceCount }}/{{ store.evidenceTotal }} clues
               </div>
             </div>
           </div>
           <button class="btn btn-ink wide" @click="resume">
-            Continue the shift <IconArrowRight :size="18" />
+            Continue <IconArrowRight :size="18" />
           </button>
-          <button class="btn btn-outline wide" @click="startingOver = true">Start a new shift</button>
+          <button class="btn btn-outline wide" @click="startingOver = true">Start over</button>
         </template>
 
         <template v-else>
-          <div class="t-label card-k">Sign in for the night shift</div>
-          <label class="lbl" for="codename">Codename</label>
+          <div class="t-label card-k">Badge in · night access</div>
+          <label class="lbl" for="codename">Your name</label>
           <input id="codename" ref="nameEl" v-model="name" class="field big-field" maxlength="24"
-            placeholder="e.g. Nightjar" autocomplete="off" @keydown.enter="begin" />
+            placeholder="e.g. Arya" autocomplete="off" @keydown.enter="begin" />
 
           <div class="lbl">Suit colour</div>
           <div class="suits" role="radiogroup" aria-label="Suit colour">
@@ -55,16 +53,16 @@
             </button>
           </div>
 
-          <p v-if="hasSave" class="warn">Starting a new shift erases {{ store.playerName }}'s progress.</p>
+          <p v-if="hasSave" class="warn">Starting over erases {{ store.playerName }}'s progress.</p>
           <button class="btn btn-ink wide" :disabled="!name.trim()" @click="begin">
-            Start the shift <IconArrowRight :size="18" />
+            Begin the story <IconArrowRight :size="18" />
           </button>
           <button v-if="hasSave" class="btn btn-outline wide" @click="startingOver = false">Cancel</button>
         </template>
       </section>
 
       <aside class="feed anim-rise" style="animation-delay: .16s" aria-label="Incident feed">
-        <div class="t-label feed-k"><span class="rec"></span> IDS alerts</div>
+        <div class="t-label feed-k"><span class="rec"></span> Intrusion alerts · tonight</div>
         <ol>
           <li v-for="a in alerts" :key="a.code">
             <span class="t-mono a-time">{{ a.time }}</span>
@@ -84,7 +82,6 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { IconArrowRight } from '@tabler/icons-vue'
 import { useGameStore, PLAYER_COLORS } from '@/stores/game'
-import { STRIDE } from '@/game/stride'
 import { paintStatic } from '@/game/paintStatic'
 import { WORLD_W, WORLD_H } from '@/game/world'
 import { unlockAudio, sfx } from '@/game/audio'
@@ -112,7 +109,7 @@ function begin() {
   unlockAudio()
   sfx.blip()
   store.startGame(name.value.trim(), color.value)
-  router.push('/game')
+  router.push('/prologue')
 }
 
 function resume() {
@@ -199,17 +196,7 @@ onUnmounted(() => cancelAnimationFrame(raf))
 .subtitle { font-size: clamp(28px, 4vw, 44px); color: var(--color-fog-dim); margin-top: 10px; font-weight: 600; }
 .pitch { max-width: 520px; font-size: 17px; line-height: 1.6; color: var(--color-fog); margin: 22px 0 0; }
 
-.legend {
-  list-style: none;
-  padding: 0;
-  margin: 26px 0 0;
-  display: grid;
-  grid-template-columns: repeat(3, max-content);
-  gap: 6px 22px;
-  font-size: 14px;
-  color: var(--color-fog-dim);
-}
-.legend-l { font-family: var(--font-cond); font-weight: 700; font-size: 17px; margin-right: 8px; }
+.pitch-2 { margin-top: 12px; color: var(--color-fog-dim); font-size: 15px; }
 
 .card {
   padding: 26px 26px 24px;
@@ -267,7 +254,6 @@ onUnmounted(() => cancelAnimationFrame(raf))
     gap: 28px;
   }
   .intro { align-self: start; }
-  .legend { grid-template-columns: repeat(2, max-content); }
   .bg-shade { background: #0B0E13D0; }
 }
 </style>

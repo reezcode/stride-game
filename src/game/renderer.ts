@@ -4,6 +4,7 @@ import {
   isWallTile, type Room,
 } from './world'
 import { drawDetective, rr, type Facing, type Ctx } from './sprites'
+import { drawWarden } from './portraits'
 
 export type CaseStatus = 'breach' | 'visited' | 'solved'
 
@@ -20,6 +21,8 @@ export interface FrameState {
   target: { x: number; y: number; age: number } | null
   particles: { x: number; y: number; life: number; max: number }[]
   allSolved: boolean
+  wardens: { x: number; y: number; color: string; name: string; alert: boolean; stunned: boolean; near: boolean }[]
+  npc: { x: number; y: number; color: string } | null
 }
 
 interface Emissive { x: number; y: number; r: number; color: string; room?: string; scenarioId?: string; kind: string }
@@ -140,6 +143,7 @@ export class Renderer {
     this.drawDoors(g, s)
     this.drawParticles(g, s)
     const p = s.player
+    if (s.npc) drawDetective(g, s.npc.x, s.npc.y, s.npc.color, 'up', 0, false)
     drawDetective(g, p.x, p.y, p.color, p.facing, p.phase, p.moving)
 
     this.drawLighting(s)
@@ -147,6 +151,7 @@ export class Renderer {
     this.worldTransform(g, s)
     this.drawEmissiveSurfaces(g, s)
     this.drawMarkers(g, s)
+    this.drawWardens(g, s)
 
     // name tag
     g.font = '600 10px "IBM Plex Sans", sans-serif'
@@ -449,10 +454,10 @@ export class Renderer {
         case 'screenWall': {
           if (!s.allSolved) break
           g.fillStyle = 'rgba(245,240,226,0.95)'; g.fillRect(p.x + 4, p.y + 3, p.w - 8, p.h - 6)
-          g.fillStyle = '#2A8B7D'
+          g.fillStyle = '#B8321F'
           g.font = '700 10px "IBM Plex Sans Condensed", sans-serif'
           g.textAlign = 'center'; g.textBaseline = 'middle'
-          g.fillText('INCIDENT CLOSED', p.x + p.w / 2, p.y + p.h / 2)
+          g.fillText('LOG WIPE HALTED · 61%', p.x + p.w / 2, p.y + p.h / 2)
           g.textAlign = 'start'
           break
         }
@@ -478,6 +483,26 @@ export class Renderer {
       const on = s.lockedDoors.has(d.id)
       g.fillStyle = on ? (Math.sin(t * 4) > 0 ? '#FF5A43' : '#7A2A20') : '#4CC38A'
       g.fillRect(x + d.w * TILE / 2 - 4, y + 4, 8, 3)
+    }
+  }
+
+  // ─── Wardens (self-lit, so they are painted over the darkness) ───
+
+  private drawWardens(g: Ctx, s: FrameState) {
+    for (const w of s.wardens) {
+      if (!this.inView(s, w.x, w.y, 80)) continue
+      g.save()
+      // seen through a wall they are only a glow
+      g.globalAlpha = w.near ? 1 : 0.3
+      drawWarden(g, w.x, w.y, 11, w.color, s.time, w.alert, w.stunned)
+      if (w.near) {
+        g.font = '600 9px "IBM Plex Mono", monospace'
+        g.textAlign = 'center'; g.textBaseline = 'middle'
+        g.fillStyle = w.color
+        g.fillText(w.name, w.x, w.y + 12)
+        g.textAlign = 'start'
+      }
+      g.restore()
     }
   }
 

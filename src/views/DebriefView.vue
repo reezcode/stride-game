@@ -2,14 +2,14 @@
   <div class="page">
     <nav class="topbar">
       <button class="back" @click="router.push('/game')"><IconArrowLeft :size="18" /> Back to the floor</button>
-      <button class="back" @click="confirmReset = true"><IconRefresh :size="17" /> New shift</button>
+      <button class="back" @click="confirmReset = true"><IconRefresh :size="17" /> Start over</button>
     </nav>
 
     <article class="report paper anim-rise">
       <header class="r-head">
         <div>
-          <div class="t-label kicker">Incident report · PayVault HQ · 14th floor</div>
-          <h1 class="t-display title">Night-shift debrief</h1>
+          <div class="t-label kicker">Sealed record · PayVault HQ · 14th floor · sent to legal and the cyber unit</div>
+          <h1 class="t-display title">What was done to Laras</h1>
           <div class="agent">
             <DetectiveAvatar :color="store.playerColor" :size="44" />
             <div>
@@ -86,17 +86,17 @@
         <span class="muted">Filed {{ filedAt }}</span>
         <div class="r-actions">
           <button class="btn btn-outline" @click="router.push('/game')">Back to the floor</button>
-          <button class="btn btn-ink" @click="confirmReset = true">Start a new shift</button>
+          <button class="btn btn-ink" @click="confirmReset = true">Start over</button>
         </div>
       </footer>
     </article>
 
     <div v-if="confirmReset" class="overlay" @mousedown.self="confirmReset = false">
       <div class="confirm paper anim-rise" role="alertdialog" aria-modal="true">
-        <h3>Start a new shift?</h3>
+        <h3>Start over?</h3>
         <p>This erases {{ store.playerName }}'s cases, evidence, XP and manual progress.</p>
         <div class="confirm-actions">
-          <button class="btn btn-outline" @click="confirmReset = false">Keep this shift</button>
+          <button class="btn btn-outline" @click="confirmReset = false">Keep this save</button>
           <button class="btn btn-alarm" @click="resetAndRestart">Erase and restart</button>
         </div>
       </div>

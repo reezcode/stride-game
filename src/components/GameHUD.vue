@@ -4,7 +4,11 @@
       <DetectiveAvatar :color="store.playerColor" :size="34" />
       <div class="who-text">
         <div class="who-name">{{ store.playerName }}</div>
-        <div class="who-rank">{{ rank }}</div>
+        <div class="who-rank">Lv {{ store.level }} · {{ rank }}</div>
+      </div>
+      <div class="resolve" :title="`Resolve ${store.resolve}/${store.maxResolve}: how many mistakes you can take against a warden`">
+        <IconHeartbeat :size="15" stroke-width="1.8" />
+        <span class="res-track"><span class="res-fill" :style="{ width: `${(store.resolve / store.maxResolve) * 100}%` }"></span></span>
       </div>
     </div>
 
@@ -16,15 +20,16 @@
     </ol>
 
     <div class="tools">
-      <div class="stat" title="Evidence collected">
+      <div class="stat" title="Clues collected">
         <IconFileSearch :size="16" stroke-width="1.8" />
         <span class="t-mono">{{ store.evidenceCount }}<span class="dim">/{{ store.evidenceTotal }}</span></span>
       </div>
-      <div class="stat xp" title="Experience">
+      <div class="stat xp" :title="lvl.next === null ? 'Top level' : `${lvl.next - store.totalXP} XP to level ${lvl.level + 1}`">
         <span class="t-mono">{{ store.totalXP.toLocaleString() }}</span>
         <span class="dim t-mono">XP</span>
+        <span class="xp-track"><span class="xp-fill" :style="{ width: `${lvl.pct}%` }"></span></span>
       </div>
-      <button class="icon-btn" title="STRIDE field manual" @click="$emit('manual')">
+      <button class="icon-btn" title="The manual Laras read" @click="$emit('manual')">
         <IconBook2 :size="18" stroke-width="1.8" />
       </button>
       <button class="icon-btn" :title="muted ? 'Unmute (M)' : 'Mute (M)'" @click="$emit('toggleSound')">
@@ -40,11 +45,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { IconBook2, IconVolume, IconVolumeOff, IconMenu2, IconFileSearch } from '@tabler/icons-vue'
+import { IconBook2, IconVolume, IconVolumeOff, IconMenu2, IconFileSearch, IconHeartbeat } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { rooms } from '@/game/world'
 import { scenarios } from '@/data'
-import { rankFor } from '@/game/stride'
+import { rankFor, levelProgress } from '@/game/stride'
 import DetectiveAvatar from './DetectiveAvatar.vue'
 
 defineProps<{ muted: boolean }>()
@@ -52,6 +57,7 @@ defineEmits<{ manual: []; menu: []; toggleSound: [] }>()
 
 const store = useGameStore()
 const rank = computed(() => rankFor(store.totalXP))
+const lvl  = computed(() => levelProgress(store.totalXP))
 
 const caseRows = computed(() => scenarios.map(s => {
   const c = store.getCase(s.id)
@@ -92,6 +98,12 @@ const caseRows = computed(() => scenarios.map(s => {
   text-overflow: ellipsis;
 }
 .who-rank { font-size: 12px; color: var(--color-fog-dim); line-height: 1.2; }
+
+.resolve { display: flex; align-items: center; gap: 6px; margin-left: 10px; color: #E2685A; }
+.res-track { display: block; width: 72px; height: 6px; background: var(--color-ink-700); border-radius: 2px; overflow: hidden; }
+.res-fill { display: block; height: 100%; background: #E2685A; transition: width .35s; }
+.xp-track { display: block; width: 36px; height: 4px; margin-left: 6px; background: var(--color-ink-700); border-radius: 2px; overflow: hidden; }
+.xp-fill { display: block; height: 100%; background: #F0C674; transition: width .35s; }
 
 .cases { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
 .case {
@@ -145,6 +157,9 @@ const caseRows = computed(() => scenarios.map(s => {
 @media (max-width: 640px) {
   .hud { grid-template-columns: auto 1fr auto; gap: 8px; }
   .who-text { display: none; }
+  .res-track { width: 44px; }
+  .resolve { margin-left: 2px; }
+  .xp-track { display: none; }
   .cases { justify-content: center; }
   .case { padding: 0 7px; height: 26px; }
   .stat:first-child { display: none; }

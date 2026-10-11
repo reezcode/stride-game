@@ -17,7 +17,7 @@
     </Transition>
 
     <!-- Objective -->
-    <aside v-if="!panelOpen" class="objective">
+    <aside v-if="!overlayOpen" class="objective">
       <div class="obj-compass" :style="{ transform: `rotate(${objective.angle}rad)` }" aria-hidden="true">
         <IconNavigationFilled :size="16" />
       </div>
@@ -28,13 +28,13 @@
     </aside>
 
     <!-- Minimap -->
-    <div v-if="!panelOpen" class="minimap" title="Click to walk there">
+    <div v-if="!overlayOpen" class="minimap" title="Click to walk there">
       <canvas ref="miniEl" @pointerdown.stop="onMiniClick"></canvas>
     </div>
 
     <!-- Interaction prompt -->
     <Transition name="prompt">
-      <button v-if="nearInfo && !panelOpen && !menuOpen && !briefingOpen" class="prompt" @click="interact(nearInfo.id)">
+      <button v-if="nearInfo && !paused" class="prompt" @click="interact(nearInfo.id)">
         <span class="kbd">E</span>
         <span>{{ nearInfo.verb }}</span>
         <span class="prompt-obj">{{ nearInfo.label }}</span>
@@ -45,12 +45,12 @@
     <Transition name="note">
       <div v-if="note" :key="note.key" class="note paper" role="status">
         <div class="note-head">
-          <span class="t-label">Evidence · {{ note.room }}</span>
+          <span class="t-label">Clue · {{ note.room }}</span>
           <span class="t-mono note-count">{{ note.count }}</span>
         </div>
         <div class="note-label">{{ note.label }}</div>
         <p class="note-text">{{ note.text }}</p>
-        <div class="note-xp t-mono">+{{ XP_RULES.evidence }} XP when the case is sealed</div>
+        <div class="note-xp t-mono">Lets you read one warden move · +{{ XP_RULES.evidence }} XP when sealed</div>
       </div>
     </Transition>
 
@@ -60,7 +60,7 @@
     </Transition>
 
     <!-- Mobile controls -->
-    <template v-if="isTouch && !panelOpen">
+    <template v-if="isTouch && !overlayOpen">
       <VirtualJoystick @move="onJoy" @stop="onJoy(0, 0)" />
       <button class="action-btn" :class="{ ready: !!nearInfo }" :disabled="!nearInfo" @click="nearInfo && interact(nearInfo.id)">
         {{ nearInfo ? nearInfo.verb : 'Use' }}
@@ -76,21 +76,30 @@
       @solved="onSolved"
     />
 
-    <!-- Briefing memo -->
+    <!-- Laras's message -->
     <div v-if="briefingOpen" class="overlay" @mousedown.self="closeBriefing">
       <article class="memo paper anim-rise">
-        <div class="t-label memo-k">Internal memo · PayVault security · 02:14</div>
-        <h1 class="t-display memo-title">Five rooms tripped the alarm tonight.</h1>
+        <div class="t-label memo-k">Laras · scheduled message · delivered 01:31</div>
+        <h1 class="t-display memo-title">“It started in PayVault.”</h1>
         <p>
-          Intrusion detection flagged five systems on the 14th floor. Each breached room has its
-          lights cut, a <b>case terminal</b> and evidence left behind by the people who built the system.
+          Someone on the inside is wiping three weeks of logs tonight. Five rooms are dark, and in each one
+          a <b>warden</b>, a guard program they left running, is sitting on the terminal.
         </p>
         <ol class="memo-steps">
-          <li><b>Search the room.</b> Marked objects glint when you get close. Each one adds a clue to the case file.</li>
-          <li><b>Read the terminal.</b> It shows the endpoint, request and response under investigation.</li>
-          <li><b>File a STRIDE report.</b> Pick every category that applies and rate its severity. Wrong categories cost XP.</li>
+          <li><b>Search the room.</b> Marked objects glint when you get close. Each is a clue the wipe has not reached yet. Wardens notice you sooner when you run.</li>
+          <li><b>Break the warden.</b> It attacks the way its maker attacked her. Answer each move with the right counter. Every clue you hold lets you read one move in advance.</li>
+          <li><b>Seal the case.</b> At the freed terminal, put on record every kind of harm that system allowed. A sealed case is a proof nobody can delete.</li>
         </ol>
-        <p class="memo-small">The Briefing Room stays locked until all five cases are sealed. The STRIDE field manual is in the Training Room if you need a refresher.</p>
+        <template v-if="gathered.length">
+          <div class="t-label memo-k proofs-k">What you can prove · {{ gathered.length }}/{{ proofs.length }}</div>
+          <ul class="proofs">
+            <li v-for="p in gathered" :key="p.id"><b>{{ p.title }}</b> {{ p.text }}</li>
+          </ul>
+        </template>
+        <p class="memo-small">
+          The Briefing Room stays locked until all five cases are sealed. The manual Laras read is in the Training Room.
+          Coffee in the Pantry steadies your nerves.
+        </p>
         <div class="controls">
           <div><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> or click to walk</div>
           <div><span class="kbd">Shift</span> run</div>
@@ -99,23 +108,26 @@
           <div><span class="kbd">Esc</span> menu</div>
         </div>
         <button class="btn btn-ink memo-btn" @click="closeBriefing">
-          {{ store.briefingSeen ? 'Back to work' : 'Start the shift' }}
+          {{ store.briefingSeen ? 'Back to it' : 'Find out what happened' }}
         </button>
       </article>
     </div>
+
+    <EncounterPanel v-if="encounter" :key="encounter.key" :def="encounter.def" @end="encounter.done" />
+    <StoryScene v-if="scene" :key="scene.key" :lines="scene.lines" @done="endScene" />
 
     <!-- Pause menu -->
     <div v-if="menuOpen" class="overlay" @mousedown.self="menuOpen = false">
       <div class="menu anim-rise">
         <div class="t-label menu-k">Paused</div>
         <button class="menu-item" @click="menuOpen = false"><IconPlayerPlay :size="18" /> Resume</button>
-        <button class="menu-item" @click="menuOpen = false; briefingOpen = true"><IconNotes :size="18" /> Mission memo</button>
+        <button class="menu-item" @click="menuOpen = false; briefingOpen = true"><IconNotes :size="18" /> Laras's message</button>
         <button class="menu-item" @click="goLearn"><IconBook2 :size="18" /> STRIDE field manual</button>
         <button class="menu-item" @click="toggleSound">
           <IconVolumeOff v-if="muted" :size="18" /><IconVolume v-else :size="18" />
           Sound: {{ muted ? 'off' : 'on' }}
         </button>
-        <button v-if="store.allSolved" class="menu-item" @click="router.push('/debrief')"><IconReportAnalytics :size="18" /> Debrief</button>
+        <button v-if="store.finaleDone" class="menu-item" @click="router.push('/debrief')"><IconReportAnalytics :size="18" /> Debrief</button>
         <button class="menu-item dim" @click="router.push('/')"><IconLogout :size="18" /> Title screen</button>
         <p class="menu-foot">Progress is saved automatically.</p>
       </div>
@@ -140,10 +152,17 @@ import { move, blocked, findPath, setLocks } from '@/game/physics'
 import { Renderer, STATUS_COLOR, type CaseStatus } from '@/game/renderer'
 import type { Facing } from '@/game/sprites'
 import { sfx, unlockAudio, isMuted, setMuted, startAmbience, stopAmbience } from '@/game/audio'
-import { XP_RULES } from '@/game/stride'
+import { XP_RULES, STRIDE_BY } from '@/game/stride'
+import { makeWardens, stepWarden, type Warden } from '@/game/wardens'
+import {
+  COUNTERS, WARDEN_LOCKS, WARDEN_HIT, NEMESIS, proofs, proofById, fragments, denials,
+  finaleIntro, finaleEnd, type Line,
+} from '@/data/story'
 import GameHUD from '@/components/GameHUD.vue'
 import VirtualJoystick from '@/components/VirtualJoystick.vue'
 import InvestigationPanel from '@/components/InvestigationPanel.vue'
+import EncounterPanel, { type EncounterDef } from '@/components/EncounterPanel.vue'
+import StoryScene from '@/components/StoryScene.vue'
 
 const router = useRouter()
 const store  = useGameStore()
@@ -165,7 +184,12 @@ const note   = shallowRef<{ key: number; room: string; label: string; text: stri
 const toast  = shallowRef<{ key: number; text: string; tone: string } | null>(null)
 const objective = ref({ kicker: '', text: '', angle: 0 })
 
-const paused = computed(() => panelOpen.value || menuOpen.value || briefingOpen.value)
+const scene     = shallowRef<{ key: number; lines: Line[]; then?: () => void } | null>(null)
+const encounter = shallowRef<{ key: number; def: EncounterDef; done: (r: 'win' | 'lose' | 'flee') => void } | null>(null)
+
+const overlayOpen = computed(() => panelOpen.value || !!scene.value || !!encounter.value)
+const paused = computed(() => overlayOpen.value || menuOpen.value || briefingOpen.value)
+const gathered = computed(() => proofs.filter(p => store.getCase(p.id)?.solved))
 
 // ── Simulation state (plain, not reactive) ──
 const start = (() => {
@@ -209,6 +233,97 @@ const roomPower: Record<string, number> = Object.fromEntries(rooms.map(r => [r.i
 
 setLocks(store.allSolved)
 
+// ── Story: scenes, wardens, the confrontation ──
+
+const FIGURE = { x: 1398, y: 1010 }   // beside the podium, watching the wall screen
+let wardens: Warden[] = makeWardens(id => !store.wardensDown.includes(id) && !store.getCase(id)?.solved)
+const wardenOf = (scenarioId?: string) => wardens.find(w => w.def.id === scenarioId)
+let lastLevel = store.level
+
+function playScene(lines: Line[], then?: () => void) {
+  keys.clear(); path = null; pendingInteract = null
+  scene.value = { key: Date.now(), lines, then }
+}
+function endScene() {
+  const then = scene.value?.then
+  scene.value = null
+  then?.()
+}
+
+/** Call after XP changes: heals and returns a toast suffix if a level was gained. */
+function levelNote() {
+  if (store.level <= lastLevel) return ''
+  lastLevel = store.level
+  store.restoreResolve()
+  window.setTimeout(() => sfx.levelUp(), 500)
+  return ` · Level ${store.level}, resolve restored`
+}
+
+function fightWarden(w: Warden) {
+  keys.clear(); path = null; pendingInteract = null
+  const def: EncounterDef = {
+    mode: 'warden', id: w.def.id, name: w.def.name, color: w.def.color, tagline: w.def.tagline,
+    locks: WARDEN_LOCKS, hit: WARDEN_HIT,
+    insight: store.getCase(w.def.id)?.evidenceFound.length ?? 0,
+    rounds: w.def.moves,
+    options: COUNTERS.map(c => ({ id: c.id, name: c.name, line: c.line, color: STRIDE_BY[c.id].color, miss: c.miss })),
+    winText: w.def.down,
+    loseText: 'Your hands are shaking too hard to type. You back out into the hall to breathe. It will still be there.',
+  }
+  encounter.value = {
+    key: Date.now(), def,
+    done(result) {
+      encounter.value = null
+      if (result === 'win') {
+        store.defeatWarden(w.def.id)
+        wardens = wardens.filter(x => x !== w)
+        for (let i = 0; i < 14; i++) {
+          particles.push({ x: w.x + (Math.random() - 0.5) * 30, y: w.y - 14 + (Math.random() - 0.5) * 24, life: 0.9, max: 0.9 })
+        }
+        showToast(`${w.def.name} is down · +${XP_RULES.warden} XP${levelNote()}`, 'good', 4200)
+        return
+      }
+      w.state = 'patrol'; w.path = []
+      if (result === 'lose') {
+        store.restoreResolve()
+        px = w.def.retreat.x; py = w.def.retreat.y; vx = 0; vy = 0
+        w.x = w.def.patrol[0].x; w.y = w.def.patrol[0].y; w.wp = 1; w.stun = 2
+        showToast('You catch your breath in the hall. More clues would let you read its moves.', 'warn', 5000)
+      } else {
+        w.stun = 5
+        showToast(`${w.def.name} is resetting. You have a few seconds.`, 'plain')
+      }
+    },
+  }
+}
+
+function confront() {
+  const fight = () => {
+    encounter.value = {
+      key: Date.now(),
+      def: {
+        mode: 'proof', id: 'nemesis', name: NEMESIS.name, color: NEMESIS.color, tagline: NEMESIS.tagline,
+        locks: denials.length, hit: NEMESIS.hit, insight: 0,
+        rounds: denials,
+        options: proofs.map(p => ({ id: p.id, name: p.title, line: p.text, color: '#F0C674' })),
+        winText: 'Five denials, five files. There is nothing left for him to stand on.',
+        loseText: 'He almost talks his way out, and for a second you doubt yourself. Steady. Read the files again.',
+      },
+      done(result) {
+        encounter.value = null
+        if (result === 'win') {
+          playScene(finaleEnd, () => { store.finishFinale(); router.push('/debrief') })
+          return
+        }
+        store.restoreResolve()
+        showToast('He is not going anywhere. Step up to the podium when you are ready.', 'warn', 4500)
+      },
+    }
+  }
+  if (store.markScene('finale-intro')) playScene(finaleIntro, fight)
+  else fight()
+}
+
 // ── Interactables ──
 
 function available(it: Interactable) {
@@ -220,16 +335,20 @@ function available(it: Interactable) {
 }
 
 const VERB: Record<Interactable['kind'], string> = {
-  terminal: 'Open case file', evidence: 'Examine', manual: 'Study', debrief: 'Start debrief', board: 'Read', flavor: 'Check',
+  terminal: 'Open case file', evidence: 'Examine', manual: 'Study', debrief: 'Read the debrief', board: 'Read', flavor: 'Check',
 }
 const nearInfo = computed(() => {
   const it = interactables.find(i => i.id === nearId.value)
   if (!it) return null
   let verb = VERB[it.kind]
   if (it.kind === 'terminal' && store.getCase(it.scenarioId!)?.solved) verb = 'Review findings'
-  const label = it.kind === 'terminal'
+  if (it.kind === 'terminal' && wardenOf(it.scenarioId)) verb = 'Locked'
+  if (it.kind === 'debrief' && !store.finaleDone) verb = 'Step up'
+  let label = it.kind === 'terminal'
     ? `${scenarios.find(s => s.id === it.scenarioId)?.code} · ${scenarios.find(s => s.id === it.scenarioId)?.title}`
     : it.label
+  if (it.kind === 'debrief' && !store.finaleDone) label = 'The figure at the podium'
+  if (it.kind === 'board') label = 'Laras\'s message'
   return { id: it.id, verb, label }
 })
 
@@ -248,12 +367,19 @@ function interact(id: string) {
   if (!it || paused.value) return
   path = null; pendingInteract = null
   switch (it.kind) {
-    case 'terminal':
+    case 'terminal': {
+      const w = wardenOf(it.scenarioId)
+      if (w) {
+        sfx.denied()
+        showToast(`${w.def.name} has this terminal locked. Break the warden first.`, 'warn')
+        return
+      }
       store.visitCase(it.scenarioId!)
       activeScenarioId.value = it.scenarioId!
       panelOpen.value = true
       keys.clear()
       break
+    }
     case 'evidence': {
       if (!store.findEvidence(it.scenarioId!, it.detail!)) return
       sfx.pickup()
@@ -271,9 +397,18 @@ function interact(id: string) {
       break
     }
     case 'manual': goLearn(); break
-    case 'debrief': router.push('/debrief'); break
+    case 'debrief':
+      if (store.finaleDone) router.push('/debrief')
+      else confront()
+      break
     case 'board': briefingOpen.value = true; sfx.paper(); break
-    case 'flavor': showToast(it.text ?? '', 'plain'); sfx.blip(); break
+    case 'flavor':
+      if (it.id === 'coffee' && store.resolve < store.maxResolve) {
+        store.restoreResolve()
+        sfx.heal()
+        showToast('Burnt espresso, black. Your hands stop shaking. Resolve restored.', 'good')
+      } else { showToast(it.text ?? '', 'plain'); sfx.blip() }
+      break
   }
 }
 
@@ -299,12 +434,17 @@ function closePanel() {
     flicker[id] = time
     sfx.restore()
     const c = store.getCase(roomById[id].scenarioId!)
-    showToast(`${roomById[id].name} secured · +${c?.xpEarned ?? 0} XP`, 'good', 3600)
-    if (store.allSolved) {
-      setLocks(true)
-      flicker.briefing = time + 1.4
-      window.setTimeout(() => showToast('All five cases sealed. The Briefing Room is open.', 'good', 5000), 3800)
-    }
+    showToast(`${roomById[id].name} sealed · +${c?.xpEarned ?? 0} XP${levelNote()}`, 'good', 3600)
+    const all = store.allSolved
+    if (all) { setLocks(true); flicker.briefing = time + 1.4 }
+    // what she tried to say here, and what it lets you prove
+    const sid = roomById[id].scenarioId!
+    window.setTimeout(() => {
+      playScene(
+        [...fragments[sid].lines, { k: 'proof', title: proofById[sid].title, text: proofById[sid].text }],
+        () => { if (all) showToast('All five sealed. The Briefing Room is open, and someone is in it.', 'good', 6000) },
+      )
+    }, 1500)
   }
 }
 
@@ -518,6 +658,17 @@ function step(dt: number) {
     store.visitRoom(here.id)
     if (here.scenarioId) store.visitCase(here.scenarioId)
     if (here.h > 3) showBanner(here.id)
+    const w = wardenOf(here.scenarioId)
+    if (w && store.markScene(`intro-${w.def.id}`)) { w.stun = 1.5; playScene(w.def.intro) }
+  }
+
+  // wardens
+  if (!paused.value) {
+    for (const w of wardens) {
+      const ev = stepWarden(w, dt, { x: px, y: py, running: keys.has('shift') && moving })
+      if (ev === 'spotted') sfx.spotted()
+      else if (ev === 'touch') { fightWarden(w); break }
+    }
   }
   if (here?.scenarioId && caseStatus(here.scenarioId) !== 'solved' && !paused.value) {
     alarmTimer -= dt
@@ -549,12 +700,14 @@ function showBanner(roomId: string) {
     const st = caseStatus(r.scenarioId)
     const c = store.getCase(r.scenarioId)!
     const total = scenarios.find(s => s.id === r.scenarioId)!.details.length
-    if (st === 'solved') { sub = 'Secured'; tone = 'good' }
-    else { sub = `Breach unresolved · evidence ${c.evidenceFound.length}/${total}`; tone = 'bad' }
+    const w = wardenOf(r.scenarioId)
+    if (st === 'solved') { sub = 'Sealed'; tone = 'good' }
+    else { sub = `${w ? `${w.def.name} on guard` : 'Terminal free'} · clues ${c.evidenceFound.length}/${total}`; tone = 'bad' }
   } else if (r.lockedUntilSolved) {
-    sub = store.allSolved ? 'Debrief ready at the podium' : 'Locked'
-  } else if (r.id === 'training') sub = 'STRIDE field manual at the kiosk'
-  else if (r.id === 'lobby') sub = 'Case board on the east wall'
+    sub = store.finaleDone ? 'Debrief at the podium' : store.allSolved ? 'Someone is at the podium' : 'Locked'
+  } else if (r.id === 'training') sub = 'The manual Laras read is at the kiosk'
+  else if (r.id === 'pantry') sub = 'Coffee steadies your nerves'
+  else if (r.id === 'lobby') sub = 'Laras\'s message on the east wall'
   banner.value = { title: r.name, sub, tone }
   clearTimeout(bannerTimer)
   bannerTimer = window.setTimeout(() => { banner.value = null }, 2600)
@@ -562,36 +715,40 @@ function showBanner(roomId: string) {
 
 function updateObjective() {
   const here = currentRoom ? roomById[currentRoom] : null
+  const o = objective.value
   let tx = px, ty = py
   if (store.allSolved) {
     const it = interactables.find(i => i.id === 'debrief')!
     tx = it.x; ty = it.y
-    objective.value.kicker = 'All cases closed'
-    objective.value.text = 'Present your findings in the Briefing Room'
+    o.kicker = store.finaleDone ? 'It is over' : 'All five cases sealed'
+    o.text = store.finaleDone ? 'Read the debrief at the podium' : 'Someone is waiting in the Briefing Room'
   } else if (here?.scenarioId && caseStatus(here.scenarioId) !== 'solved') {
     const sc = scenarios.find(s => s.id === here.scenarioId)!
     const c = store.getCase(sc.id)!
+    const w = wardenOf(sc.id)
     const missing = interactables.filter(i => i.scenarioId === sc.id && i.kind === 'evidence' && !c.evidenceFound.includes(i.detail!))
+    o.kicker = `${here.name} · clues ${c.evidenceFound.length}/${sc.details.length}`
     if (missing.length) {
       const m = missing.reduce((a, b) => Math.hypot(a.x - px, a.y - py) < Math.hypot(b.x - px, b.y - py) ? a : b)
       tx = m.x; ty = m.y
-      objective.value.kicker = `${here.name} · evidence ${c.evidenceFound.length}/${sc.details.length}`
-      objective.value.text = 'Search for marked objects, then file at the terminal'
+      o.text = w ? `Gather clues out of ${w.def.name}'s sight, or face it now` : 'Search for marked objects, then seal the case at the terminal'
+    } else if (w) {
+      tx = w.x; ty = w.y
+      o.text = `Break ${w.def.name} to free the terminal`
     } else {
       const term = interactables.find(i => i.id === `term-${sc.id}`)!
       tx = term.x; ty = term.y
-      objective.value.kicker = `${here.name} · all evidence found`
-      objective.value.text = 'File your STRIDE report at the terminal'
+      o.text = 'Put on record what was done here'
     }
   } else {
     const open = interactables.filter(i => i.kind === 'terminal' && caseStatus(i.scenarioId!) !== 'solved')
     const t = open.reduce((a, b) => Math.hypot(a.x - px, a.y - py) < Math.hypot(b.x - px, b.y - py) ? a : b)
     tx = t.x; ty = t.y
     const room = rooms.find(r => r.scenarioId === t.scenarioId)!
-    objective.value.kicker = `${store.solvedCount}/${scenarios.length} cases closed`
-    objective.value.text = `Nearest breach: ${room.name}`
+    o.kicker = `${store.solvedCount}/${scenarios.length} cases sealed`
+    o.text = `Nearest dark room: ${room.name}`
   }
-  objective.value.angle = Math.atan2(ty - py, tx - px) + Math.PI / 4
+  o.angle = Math.atan2(ty - py, tx - px) + Math.PI / 4
 }
 
 // ── Minimap ──
@@ -628,6 +785,10 @@ function drawMini() {
     for (const p of path) g.lineTo(p.x, p.y)
     g.stroke(); g.setLineDash([])
   }
+  for (const w of wardens) {
+    g.fillStyle = w.def.color
+    g.beginPath(); g.arc(w.x, w.y, w.state === 'chase' ? 30 : 22, 0, Math.PI * 2); g.fill()
+  }
   g.fillStyle = '#F2EDE2'
   g.beginPath(); g.arc(px, py, 34, 0, Math.PI * 2); g.fill()
   g.fillStyle = store.playerColor
@@ -661,6 +822,11 @@ function loop(now: number) {
       target,
       particles,
       allSolved: store.allSolved,
+      wardens: wardens.map(w => ({
+        x: w.x, y: w.y, color: w.def.color, name: w.def.name,
+        alert: w.state === 'chase', stunned: w.stun > 0, near: currentRoom === w.room.id,
+      })),
+      npc: store.allSolved && !store.finaleDone ? { ...FIGURE, color: '#4A4F5A' } : null,
     })
   }
   raf = requestAnimationFrame(loop)
@@ -893,6 +1059,10 @@ onUnmounted(() => {
 .memo p { font-size: 15px; line-height: 1.6; margin: 0 0 12px; }
 .memo-steps { list-style: decimal; margin: 0 0 14px; padding-left: 20px; display: grid; gap: 8px; font-size: 15px; line-height: 1.5; }
 .memo-small { font-size: 13px !important; color: var(--color-pen-3); }
+.proofs-k { margin-top: 4px; color: #2F7D57; }
+.proofs { list-style: none; margin: 8px 0 14px; padding: 0; display: grid; gap: 6px; font-size: 13.5px; line-height: 1.5; }
+.proofs li { padding-left: 10px; border-left: 3px solid #2F7D57; }
+.proofs b { display: block; }
 .controls {
   display: flex; flex-wrap: wrap; gap: 8px 18px;
   padding: 12px 0 0;

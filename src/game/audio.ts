@@ -80,6 +80,38 @@ export const sfx = {
   stamp() { noise(0.18, 'lowpass', 240, 1, 0.5, 0.002); tone(90, 0.2, 'sine', 0.35, 0, 50) },
   restore() { [392, 523, 659, 784].forEach((f, i) => tone(f, 0.25, 'triangle', 0.05, i * 0.07)) },
   alarm() { tone(980, 0.09, 'square', 0.012); tone(740, 0.12, 'square', 0.012, 0.12) },
+  type() { tone(1250 + Math.random() * 250, 0.018, 'square', 0.008) },
+  message() { tone(1175, 0.07, 'sine', 0.05); tone(1568, 0.1, 'sine', 0.045, 0.08) },
+  spotted() { tone(310, 0.16, 'sawtooth', 0.04, 0, 620); tone(620, 0.2, 'sawtooth', 0.035, 0.15, 930) },
+  hit() { noise(0.14, 'bandpass', 900, 0.8, 0.22, 0.002); tone(520, 0.14, 'triangle', 0.09, 0, 1040) },
+  hurt() { noise(0.22, 'lowpass', 300, 1, 0.35, 0.002); tone(140, 0.26, 'sawtooth', 0.07, 0, 70) },
+  down() { tone(440, 0.5, 'sawtooth', 0.05, 0, 55); noise(0.5, 'lowpass', 1200, 0.5, 0.12, 0.01) },
+  levelUp() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.09)) },
+  heal() { tone(440, 0.2, 'sine', 0.05); tone(660, 0.3, 'sine', 0.05, 0.12) },
+}
+
+// Short piano-ish phrases for story beats.
+const MOTIFS = {
+  warm:    [[392, 0], [494, 0.22], [587, 0.44], [784, 0.7]],
+  grief:   [[440, 0], [415, 0.9], [349, 1.8], [330, 2.7], [294, 3.9]],
+  dread:   [[110, 0], [117, 1.1], [110, 2.2], [104, 3.3]],
+  resolve: [[294, 0], [349, 0.5], [440, 1.0], [587, 1.6], [523, 2.3], [587, 3.0]],
+} as const
+
+export function motif(name: keyof typeof MOTIFS) {
+  if (!ctx || !master) return
+  for (const [f, at] of MOTIFS[name]) {
+    const t = ctx.currentTime + at
+    for (const [mult, peak] of [[1, 0.07], [2, 0.018]] as const) {
+      const o = ctx.createOscillator()
+      o.type = mult === 1 ? 'triangle' : 'sine'
+      o.frequency.value = f * mult
+      const g = ctx.createGain()
+      env(g, t, 0.02, peak, 1.8)
+      o.connect(g).connect(master)
+      o.start(t); o.stop(t + 2)
+    }
+  }
 }
 
 /** Low ventilation drone; quiet enough to sit under everything else. */

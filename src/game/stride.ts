@@ -35,6 +35,7 @@ export const XP_RULES = {
   hint: -25,
   falsePositive: -50,
   completion: 500,
+  warden: 150,
 }
 
 export function rankFor(xp: number) {
@@ -44,3 +45,21 @@ export function rankFor(xp: number) {
   if (xp >= 250)  return 'Junior Analyst'
   return 'Night-shift Trainee'
 }
+
+// Levels: each one adds resolve (how many mistakes you can take in an encounter).
+export const LEVELS = [0, 250, 600, 1000, 1500, 2100, 2800, 3600]
+
+export function levelFor(xp: number) {
+  let level = 1
+  for (let i = 0; i < LEVELS.length; i++) if (xp >= LEVELS[i]) level = i + 1
+  return level
+}
+
+export function levelProgress(xp: number) {
+  const level = levelFor(xp)
+  const from = LEVELS[level - 1]
+  const to = LEVELS[level] ?? null
+  return { level, pct: to === null ? 100 : Math.round(((xp - from) / (to - from)) * 100), next: to }
+}
+
+export const maxResolveFor = (level: number) => 50 + level * 10
