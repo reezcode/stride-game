@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { scenarios } from '@/data'
 import { XP_RULES, levelFor, maxResolveFor } from '@/game/stride'
 import { tr } from '@/i18n'
+import { zoneById, type ZoneId } from '@/game/world'
 
 export type StrideCategory = 'S' | 'T' | 'R' | 'I' | 'D' | 'E'
 export type Severity = 'Critical' | 'High' | 'Medium' | 'Low'
@@ -58,6 +59,7 @@ export interface GameState {
   unlocked: string[]
   storyClues: string[]
   puzzlesDone: string[]
+  wrongAccusations: number
 }
 
 const PLAYER_COLORS = [
@@ -70,6 +72,36 @@ const PLAYER_COLORS = [
 ]
 
 export { PLAYER_COLORS }
+
+// ── Save slots ──
+export const SLOTS = [1, 2, 3]
+const slotKey = (n: number) => `stride_game_${n}`
+const SLOT_KEY = 'stride_slot'
+const REACHED_KEY = 'stride_reached'
+
+/** The story so far, in order. Chapter N starts in place N with these leads already followed. */
+export const CHAPTERS: { place: ZoneId; leads: string[] }[] = [
+  { place: 'home',   leads: [] },
+  { place: 'kost',   leads: ['h-phone'] },
+  { place: 'campus', leads: ['h-phone', 'k-notebook'] },
+  { place: 'hq',     leads: ['h-phone', 'k-notebook', 'npc-dewi'] },
+]
+
+export interface SlotSummary {
+  slot: number
+  empty: boolean
+  name: string
+  color: string
+  level: number
+  chapter: number
+  solved: number
+  finished: boolean
+}
+
+/** Highest chapter any save on this device has reached (1-4). Chapter select opens up to here. */
+export function chaptersReached(): number {
+  try { return Math.max(1, Math.min(CHAPTERS.length, Number(localStorage.getItem(REACHED_KEY)) || 1)) } catch { return 1 }
+}
 
 function newCaseProgress(scenarioId: string): CaseProgress {
   return {
@@ -115,6 +147,8 @@ export const useGameStore = defineStore('game', () => {
   const unlocked     = ref<string[]>(['home'])   // places on the city map
   const storyClues   = ref<string[]>([])         // clues and conversations outside the office
   const puzzlesDone  = ref<string[]>([])
+  const wrongAccusations = ref(0)
+  const slot = ref(1)
 
   // ── Computed ──
 
@@ -164,11 +198,53 @@ export const useGameStore = defineStore('game', () => {
 
   // ── Actions ──
 
-  function startGame(name: string, color: string) {
+  /** Starts a new run in the current slot. `chapter` (1-4) skips ahead with the earlier leads already followed. */
+  function startGame(name: string, color: string, chapter = 1) {
     resetGame()
     playerName.value  = name
     playerColor.value = color
     gameStarted.value = true
+    if (chapter > 1) {
+      const ch = CHAPTERS[chapter - 1]
+      unlocked.value = CHAPTERS.slice(0, chapter).map(c => c.place)
+      storyClues.value = [...ch.leads]
+      totalXP.value = ch.leads.length * XP_RULES.clue
+      prologueSeen.value = true
+      briefingSeen.value = true
+      lastPos.value = { ...zoneById[ch.place].arrive }
+    }
+    save()
+  }
+
+  /** Switches to another save slot and loads whatever is in it. */
+  function selectSlot(n: number) {
+    slot.value = n
+    try { localStorage.setItem(SLOT_KEY, String(n)) } catch { /* noop */ }
+    clearState()
+    read()
+  }
+
+  function slotSummaries(): SlotSummary[] {
+    return SLOTS.map(n => {
+      let d: Partial<GameState> | null = null
+      try { d = JSON.parse(localStorage.getItem(slotKey(n)) ?? 'null') } catch { /* noop */ }
+      const started = !!d?.gameStarted
+      return {
+        slot: n,
+        empty: !started,
+        name: d?.playerName ?? '',
+        color: d?.playerColor ?? PLAYER_COLORS[0].hex,
+        level: levelFor(d?.totalXP ?? 0),
+        chapter: Math.max(1, Math.min(CHAPTERS.length, d?.unlocked?.length ?? (started ? CHAPTERS.length : 1))),
+        solved: d?.cases?.filter(c => c.solved).length ?? 0,
+        finished: !!d?.finaleDone,
+      }
+    })
+  }
+
+  function accuseWrongly() {
+    wrongAccusations.value++
+    totalXP.value = Math.max(0, totalXP.value - XP_RULES.wrongAccusation)
     save()
   }
 
@@ -336,7 +412,7 @@ export const useGameStore = defineStore('game', () => {
     save()
   }
 
-  function resetGame() {
+  function clearState() {
     playerName.value   = ''
     playerColor.value  = PLAYER_COLORS[0].hex
     gameStarted.value  = false
@@ -356,7 +432,13 @@ export const useGameStore = defineStore('game', () => {
     unlocked.value     = ['home']
     storyClues.value   = []
     puzzlesDone.value  = []
-    try { localStorage.removeItem('stride_game') } catch { /* noop */ }
+    wrongAccusations.value = 0
+  }
+
+  /** Wipes the current slot. */
+  function resetGame() {
+    clearState()
+    try { localStorage.removeItem(slotKey(slot.value)) } catch { /* noop */ }
   }
 
   function save() {
@@ -381,14 +463,31 @@ export const useGameStore = defineStore('game', () => {
         unlocked: unlocked.value,
         storyClues: storyClues.value,
         puzzlesDone: puzzlesDone.value,
+        wrongAccusations: wrongAccusations.value,
       }
-      localStorage.setItem('stride_game', JSON.stringify(state))
+      localStorage.setItem(slotKey(slot.value), JSON.stringify(state))
+      if (unlocked.value.length > chaptersReached()) localStorage.setItem(REACHED_KEY, String(unlocked.value.length))
     } catch { /* noop */ }
   }
 
+  /** Called once at start-up: picks the last used slot and loads it. */
   function load() {
     try {
-      const raw = localStorage.getItem('stride_game')
+      // saves from before slots existed move into slot 1
+      const old = localStorage.getItem('stride_game')
+      if (old) {
+        if (!localStorage.getItem(slotKey(1))) localStorage.setItem(slotKey(1), old)
+        localStorage.removeItem('stride_game')
+      }
+      const last = Number(localStorage.getItem(SLOT_KEY))
+      if (SLOTS.includes(last)) slot.value = last
+    } catch { /* noop */ }
+    read()
+  }
+
+  function read() {
+    try {
+      const raw = localStorage.getItem(slotKey(slot.value))
       if (!raw) return
       const d = JSON.parse(raw) as Partial<GameState>
       playerName.value    = d.playerName    ?? ''
@@ -417,6 +516,8 @@ export const useGameStore = defineStore('game', () => {
       if (unlocked.value.includes('hq') && !unlocked.value.includes('campus')) unlocked.value.push('campus')
       storyClues.value    = d.storyClues    ?? []
       puzzlesDone.value   = d.puzzlesDone   ?? []
+      wrongAccusations.value = d.wrongAccusations ?? 0
+      if (unlocked.value.length > chaptersReached()) localStorage.setItem(REACHED_KEY, String(unlocked.value.length))
     } catch { /* noop */ }
   }
 
@@ -426,6 +527,7 @@ export const useGameStore = defineStore('game', () => {
     briefingSeen, visitedRooms, lastPos,
     prologueSeen, scenesSeen, wardensDown, resolve, finaleDone, level, maxResolve,
     unlocked, storyClues, puzzlesDone, unlock, findClue, solvePuzzle,
+    slot, wrongAccusations, selectSlot, slotSummaries, accuseWrongly,
     solvedCount, allSolved, phase2Progress, phase2Completed,
     evidenceTotal, evidenceCount,
     overallAccuracy, letterGrade, strideCoverage,

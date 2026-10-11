@@ -21,7 +21,8 @@ export interface FrameState {
   target: { x: number; y: number; age: number } | null
   particles: { x: number; y: number; life: number; max: number }[]
   allSolved: boolean
-  wardens: { x: number; y: number; color: string; name: string; alert: boolean; stunned: boolean; near: boolean }[]
+  wardens: { x: number; y: number; color: string; name: string; alert: boolean; stunned: boolean; near: boolean; lured: boolean }[]
+  decoy: { x: number; y: number } | null
   npcs: { x: number; y: number; shirt: string; hair: string; skin: string; long?: boolean; back?: boolean }[]
   /** Everything outside the current zone is blacked out. */
   zone: { x: number; y: number; w: number; h: number }
@@ -503,6 +504,14 @@ export class Renderer {
   // ─── Wardens (self-lit, so they are painted over the darkness) ───
 
   private drawWardens(g: Ctx, s: FrameState) {
+    if (s.decoy) {
+      const k = (s.time * 1.4) % 1
+      g.strokeStyle = `rgba(240,198,116,${0.9 * (1 - k)})`
+      g.lineWidth = 2
+      g.beginPath(); g.arc(s.decoy.x, s.decoy.y, 6 + k * 26, 0, Math.PI * 2); g.stroke()
+      g.fillStyle = '#F0C674'
+      g.beginPath(); g.arc(s.decoy.x, s.decoy.y, 3, 0, Math.PI * 2); g.fill()
+    }
     for (const w of s.wardens) {
       if (!this.inView(s, w.x, w.y, 80)) continue
       g.save()
@@ -513,7 +522,7 @@ export class Renderer {
         g.font = '600 9px "IBM Plex Mono", monospace'
         g.textAlign = 'center'; g.textBaseline = 'middle'
         g.fillStyle = w.color
-        g.fillText(w.name, w.x, w.y + 12)
+        g.fillText(w.lured ? `${w.name} ?` : w.name, w.x, w.y + 12)
         g.textAlign = 'start'
       }
       g.restore()

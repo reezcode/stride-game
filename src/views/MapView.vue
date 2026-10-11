@@ -6,7 +6,7 @@
       @contextmenu.prevent></canvas>
     <div class="vignette" aria-hidden="true"></div>
 
-    <GameHUD :muted="muted" :place="zone.name" :show-cases="zoneId === 'hq'" @manual="goLearn" @menu="menuOpen = true" @toggle-sound="toggleSound" />
+    <GameHUD :muted="muted" :place="zone.name" :show-cases="zoneId === 'hq'" @manual="goLearn" @menu="menuOpen = true" @toggle-sound="toggleSound" @notebook="notebookOpen = true" />
 
     <!-- Room title -->
     <Transition name="banner">
@@ -65,6 +65,7 @@
       <button class="action-btn" :class="{ ready: !!nearInfo }" :disabled="!nearInfo" @click="nearInfo && interact(nearInfo.id)">
         {{ nearInfo ? nearInfo.verb : $t('map.use') }}
       </button>
+      <button v-if="wardenHere" class="decoy-btn" @click="throwDecoy">{{ $t('map.decoy') }}</button>
     </template>
 
     <!-- Case file -->
@@ -105,6 +106,9 @@
           <div><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> {{ $t('map.cWalk') }}</div>
           <div><span class="kbd">Shift</span> {{ $t('map.cRun') }}</div>
           <div><span class="kbd">E</span> {{ $t('map.cInteract') }}</div>
+          <div><span class="kbd">C</span> {{ $t('map.cSneak') }}</div>
+          <div><span class="kbd">Q</span> {{ $t('map.cDecoy') }}</div>
+          <div><span class="kbd">N</span> {{ $t('map.cNotebook') }}</div>
           <div><span class="kbd">Tab</span> {{ $t('map.cMap') }}</div>
           <div><span class="kbd">M</span> {{ $t('map.cSound') }}</div>
           <div><span class="kbd">Esc</span> {{ $t('map.cMenu') }}</div>
@@ -118,7 +122,8 @@
     <PuzzlePanel v-if="puzzle" :key="puzzle.id" :puzzle="puzzle" :place="zone.name" @close="puzzle = null" @solved="onPuzzleSolved" />
     <CityMap v-if="mapOpen" :current="zoneId" :unlocked="store.unlocked" :clock="CLOCK[zoneId]" @go="travel" @close="mapOpen = false" />
     <EncounterPanel v-if="encounter" :key="encounter.key" :def="encounter.def" @end="encounter.done" />
-    <StoryScene v-if="scene" :key="scene.key" :lines="scene.lines" overlay @done="endScene" />
+    <NotebookPanel v-if="notebookOpen" @close="notebookOpen = false" />
+    <StoryScene v-if="scene" :key="scene.key" :lines="scene.lines" overlay @done="endScene" @pick="scene.onPick?.($event)" />
 
     <!-- Pause menu -->
     <div v-if="menuOpen" class="overlay" @mousedown.self="menuOpen = false">
@@ -127,6 +132,7 @@
         <button class="menu-item" @click="menuOpen = false"><IconPlayerPlay :size="18" /> {{ $t('map.resume') }}</button>
         <button class="menu-item" @click="menuOpen = false; briefingOpen = true"><IconNotes :size="18" /> {{ $t('map.message') }}</button>
         <button class="menu-item" @click="menuOpen = false; mapOpen = true"><IconMap2 :size="18" /> {{ $t('map.cityMap') }}</button>
+        <button class="menu-item" @click="menuOpen = false; notebookOpen = true"><IconNotebook :size="18" /> {{ $t('map.notebook') }}</button>
         <button class="menu-item" @click="goLearn"><IconBook2 :size="18" /> {{ $t('map.manual') }}</button>
         <button class="menu-item" @click="toggleSound">
           <IconVolumeOff v-if="muted" :size="18" /><IconVolume v-else :size="18" />
@@ -142,11 +148,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   IconNavigationFilled, IconPlayerPlay, IconNotes, IconBook2, IconVolume, IconVolumeOff,
-  IconReportAnalytics, IconLogout, IconMap2, IconLanguage,
+  IconReportAnalytics, IconLogout, IconMap2, IconLanguage, IconNotebook,
 } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { scenarios } from '@/data'
@@ -159,10 +165,10 @@ import { Renderer, STATUS_COLOR, type CaseStatus } from '@/game/renderer'
 import type { Facing } from '@/game/sprites'
 import { sfx, unlockAudio, isMuted, setMuted, startAmbience, stopAmbience } from '@/game/audio'
 import { XP_RULES, STRIDE_BY } from '@/game/stride'
-import { makeWardens, stepWarden, type Warden } from '@/game/wardens'
+import { makeWardens, stepWarden, lureWarden, type Warden } from '@/game/wardens'
 import {
   COUNTERS, WARDEN_LOCKS, WARDEN_HIT, NEMESIS, proofs, proofById, fragments, denials,
-  finaleIntro, finaleEnd, clues, talks, arrivals, calls, puzzles, puzzleById, type Line, type Puzzle,
+  finaleIntro, finaleEnd, badEndings, clues, talks, arrivals, calls, puzzles, puzzleById, type Line, type Puzzle,
 } from '@/data/story'
 import GameHUD from '@/components/GameHUD.vue'
 import VirtualJoystick from '@/components/VirtualJoystick.vue'
@@ -171,6 +177,8 @@ import EncounterPanel, { type EncounterDef } from '@/components/EncounterPanel.v
 import StoryScene from '@/components/StoryScene.vue'
 import CityMap from '@/components/CityMap.vue'
 import PuzzlePanel from '@/components/PuzzlePanel.vue'
+import NotebookPanel from '@/components/NotebookPanel.vue'
+import { setMood, syncMusicMute } from '@/game/music'
 import { t, setLocale, LOCALE } from '@/i18n'
 
 const router = useRouter()
@@ -193,13 +201,15 @@ const note   = shallowRef<{ key: number; room: string; label: string; text: stri
 const toast  = shallowRef<{ key: number; text: string; tone: string } | null>(null)
 const objective = ref({ kicker: '', text: '', angle: 0 })
 
-const scene     = shallowRef<{ key: number; lines: Line[]; then?: () => void } | null>(null)
+const scene     = shallowRef<{ key: number; lines: Line[]; then?: () => void; onPick?: (id: string) => void } | null>(null)
 const encounter = shallowRef<{ key: number; def: EncounterDef; done: (r: 'win' | 'lose' | 'flee') => void } | null>(null)
 
 const mapOpen   = ref(false)
 const puzzle    = shallowRef<Puzzle | null>(null)
+const notebookOpen = ref(false)
+const wardenHere = ref(false)   // is there a warden in the room you are standing in?
 
-const overlayOpen = computed(() => panelOpen.value || !!scene.value || !!encounter.value || mapOpen.value || !!puzzle.value)
+const overlayOpen = computed(() => panelOpen.value || !!scene.value || !!encounter.value || mapOpen.value || !!puzzle.value || notebookOpen.value)
 const paused = computed(() => overlayOpen.value || menuOpen.value || briefingOpen.value)
 const gathered = computed(() => proofs.filter(p => store.getCase(p.id)?.solved))
 
@@ -262,9 +272,9 @@ const wardenOf = (scenarioId?: string) => wardens.find(w => w.def.id === scenari
 let lastLevel = store.level
 let interactAfter = 0
 
-function playScene(lines: Line[], then?: () => void) {
+function playScene(lines: Line[], then?: () => void, onPick?: (id: string) => void) {
   keys.clear(); path = null; pendingInteract = null
-  scene.value = { key: Date.now(), lines, then }
+  scene.value = { key: Date.now(), lines, then, onPick }
 }
 function endScene() {
   const then = scene.value?.then
@@ -290,7 +300,11 @@ function fightWarden(w: Warden) {
     locks: WARDEN_LOCKS, hit: WARDEN_HIT,
     insight: store.getCase(w.def.id)?.evidenceFound.length ?? 0,
     rounds: w.def.moves,
-    options: COUNTERS.map(c => ({ id: c.id, name: c.name, line: c.line, color: STRIDE_BY[c.id].color, miss: c.miss })),
+    // a counter whose puzzle you solved is understood, not guessed: it breaks two locks
+    options: COUNTERS.map(c => ({
+      id: c.id, name: c.name, line: c.line, color: STRIDE_BY[c.id].color, miss: c.miss,
+      strong: puzzles.some(z => z.letter === c.id && store.puzzlesDone.includes(z.id)),
+    })),
     winText: w.def.down,
     loseText: t('map.encLose'),
   }
@@ -348,6 +362,23 @@ function examine(id: string, lines: Line[], unlocks?: ZoneId) {
   })
 }
 
+// A thrown decoy pulls the room's warden away for a few seconds.
+let decoy: { x: number; y: number; life: number } | null = null
+let decoyReady = 0
+function throwDecoy() {
+  const w = wardens.find(w => w.room.id === currentRoom)
+  if (!w || paused.value) { if (!w) showToast(t('map.tDecoyNone'), 'plain', 1600); return }
+  if (time < decoyReady) { showToast(t('map.tDecoyWait'), 'plain', 1600); sfx.denied(); return }
+  const r = w.room, pad = 20
+  const x = Math.max(r.x * TILE + pad, Math.min((r.x + r.w) * TILE - pad, px + Math.cos(lightAngle) * 190))
+  const y = Math.max(r.y * TILE + pad, Math.min((r.y + r.h) * TILE - pad, py - 16 + Math.sin(lightAngle) * 190))
+  if (!lureWarden(w, x, y)) { sfx.denied(); return }
+  decoy = { x, y, life: 6 }
+  decoyReady = time + 12
+  sfx.pickup()
+  showToast(t('map.tDecoy'), 'plain', 2200)
+}
+
 function onPuzzleSolved(xp: number) {
   puzzle.value = null
   interactAfter = performance.now() + 450
@@ -377,8 +408,12 @@ function confront() {
       },
     }
   }
-  if (store.markScene('finale-intro')) playScene(finaleIntro, fight)
-  else fight()
+  // Naming the wrong colleague plays out what that would have cost, then lets you try again.
+  playScene(finaleIntro, fight, id => {
+    if (id === 'raka') return
+    store.accuseWrongly()
+    playScene(badEndings[id], () => showToast(t('map.tWrongName', { xp: XP_RULES.wrongAccusation }), 'warn', 6000))
+  })
 }
 
 // ── Interactables ──
@@ -528,13 +563,23 @@ function goLearn() {
 function toggleSound() {
   muted.value = !muted.value
   setMuted(muted.value)
+  syncMusicMute()
 }
 
 // ── Input ──
+let audioReady = false
 function unlock() {
   unlockAudio()
   if (!muted.value) startAmbience()
+  if (!audioReady) { audioReady = true; setMood(moodNow()) }
 }
+
+// The score follows where you are and what is happening.
+function moodNow() {
+  if (encounter.value) return encounter.value.def.mode === 'proof' ? 'finale' as const : 'fight' as const
+  return zoneId.value
+}
+watch([zoneId, encounter], () => { if (audioReady) setMood(moodNow()) })
 
 function onKeyDown(e: KeyboardEvent) {
   const tag = (e.target as HTMLElement)?.tagName
@@ -547,11 +592,13 @@ function onKeyDown(e: KeyboardEvent) {
     return
   }
   if (k === 'm') { toggleSound(); return }
+  if (k === 'n' && !paused.value && !e.repeat) { notebookOpen.value = true; keys.clear(); return }
+  if (k === 'q' && !paused.value && !e.repeat) { throwDecoy(); return }
   if (k === 'tab' && !paused.value) { e.preventDefault(); mapOpen.value = true; keys.clear(); return }
   if (paused.value) return
-  if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) {
+  if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c'].includes(k)) {
     keys.add(k)
-    if (k !== 'shift') { path = null; pendingInteract = null; target = null }
+    if (k !== 'shift' && k !== 'c') { path = null; pendingInteract = null; target = null }
     e.preventDefault()
   }
   if ((k === 'e' || k === 'enter' || k === ' ') && nearId.value && performance.now() > interactAfter) {
@@ -618,7 +665,10 @@ function step(dt: number) {
     if (keys.has('s') || keys.has('arrowdown'))  iy += 1
     ix += joy.x; iy += joy.y
   }
-  let speed = keys.has('shift') ? 235 : 150
+  // sneaking: hold C, or push the touch stick only part of the way
+  const stick = Math.hypot(joy.x, joy.y)
+  const sneaking = keys.has('c') || (stick > 0.05 && stick < 0.6)
+  let speed = sneaking ? 82 : keys.has('shift') ? 235 : 150
   const mag = Math.hypot(ix, iy)
   if (mag > 1) { ix /= mag; iy /= mag }
   if (mag > 0.05) {
@@ -734,7 +784,7 @@ function step(dt: number) {
   // wardens
   if (!paused.value) {
     for (const w of wardens) {
-      const ev = stepWarden(w, dt, { x: px, y: py, running: keys.has('shift') && moving })
+      const ev = stepWarden(w, dt, { x: px, y: py, running: keys.has('shift') && moving && !sneaking, sneaking })
       if (ev === 'spotted') sfx.spotted()
       else if (ev === 'touch') { fightWarden(w); break }
     }
@@ -743,6 +793,10 @@ function step(dt: number) {
     alarmTimer -= dt
     if (alarmTimer <= 0) { sfx.alarm(); alarmTimer = 2.8 }
   }
+
+  if (decoy && (decoy.life -= dt) <= 0) decoy = null
+  const wh = wardens.some(w => w.room.id === currentRoom)
+  if (wh !== wardenHere.value) wardenHere.value = wh
 
   // nearest interactable
   const n = paused.value ? null : nearest()
@@ -935,8 +989,9 @@ function loop(now: number) {
       allSolved: store.allSolved,
       wardens: wardens.map(w => ({
         x: w.x, y: w.y, color: w.def.color, name: w.def.name,
-        alert: w.state === 'chase', stunned: w.stun > 0, near: currentRoom === w.room.id,
+        alert: w.state === 'chase', stunned: w.stun > 0, near: currentRoom === w.room.id, lured: !!w.lure,
       })),
+      decoy,
       npcs: store.allSolved && !store.finaleDone ? [...npcs, FIGURE] : npcs,
       zone: zone.value,
     })
@@ -965,6 +1020,11 @@ onMounted(() => {
   if (startRoom) store.visitRoom(startRoom.id)
   if (startRoom?.scenarioId) store.visitCase(startRoom.scenarioId)
   updateObjective()
+  // starting a later chapter (or an old save) straight into a place still gets its arrival
+  const here = zoneId.value
+  if (here !== 'home' && arrivals[here] && store.markScene(`arrive-${here}`)) {
+    playScene(arrivals[here]!, () => { if (here === 'hq') briefingOpen.value = true })
+  }
   window.addEventListener('resize', resize)
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
@@ -977,6 +1037,7 @@ onUnmounted(() => {
   cancelAnimationFrame(raf)
   store.setLastPos(px, py)
   stopAmbience()
+  setMood(null)
   window.removeEventListener('resize', resize)
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
@@ -1144,6 +1205,18 @@ onUnmounted(() => {
   color: var(--color-fog-dim);
   font-weight: 600;
   font-size: 13px;
+  z-index: 26;
+}
+.decoy-btn {
+  position: absolute;
+  right: 112px;
+  bottom: calc(108px + env(safe-area-inset-bottom));
+  width: 62px; height: 62px;
+  border-radius: 50%;
+  border: 1px solid #F0C67488;
+  background: #0B0E13CC;
+  color: #F0C674;
+  font-weight: 600; font-size: 11px;
   z-index: 26;
 }
 .action-btn.ready { background: var(--color-fog); color: var(--color-ink-950); border-color: var(--color-fog); }

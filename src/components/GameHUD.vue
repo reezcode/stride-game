@@ -30,6 +30,9 @@
         <span class="dim t-mono">XP</span>
         <span class="xp-track"><span class="xp-fill" :style="{ width: `${lvl.pct}%` }"></span></span>
       </div>
+      <button class="icon-btn" :title="$t('hud.notebook')" @click="$emit('notebook')">
+        <IconNotebook :size="18" stroke-width="1.8" />
+      </button>
       <button class="icon-btn" :title="$t('hud.manual')" @click="$emit('manual')">
         <IconBook2 :size="18" stroke-width="1.8" />
       </button>
@@ -46,7 +49,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { IconBook2, IconVolume, IconVolumeOff, IconMenu2, IconFileSearch, IconHeartbeat, IconMapPin } from '@tabler/icons-vue'
+import { IconBook2, IconVolume, IconVolumeOff, IconMenu2, IconFileSearch, IconHeartbeat, IconMapPin, IconNotebook } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { rooms } from '@/game/world'
 import { scenarios } from '@/data'
@@ -55,7 +58,7 @@ import { clues, talks, puzzles } from '@/data/story'
 import DetectiveAvatar from './DetectiveAvatar.vue'
 
 defineProps<{ muted: boolean; place: string; showCases: boolean }>()
-defineEmits<{ manual: []; menu: []; toggleSound: [] }>()
+defineEmits<{ manual: []; menu: []; toggleSound: []; notebook: [] }>()
 
 const store = useGameStore()
 const rank = computed(() => rankFor(store.totalXP))

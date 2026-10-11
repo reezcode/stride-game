@@ -50,7 +50,7 @@
               :disabled="disabled.includes(o.id)" @click="pick(o.id)">
               <span class="choice-key t-mono">{{ i + 1 }}</span>
               <span class="choice-text">
-                <span class="choice-name">{{ o.name }}</span>
+                <span class="choice-name">{{ o.name }}<span v-if="o.strong" class="strong t-mono" :title="$t('enc.strong')">×2</span></span>
                 <span class="choice-line">{{ o.line }}</span>
               </span>
             </button>
@@ -89,7 +89,7 @@ export interface EncounterDef {
   hit: number
   insight: number
   rounds: { text: string; answer: string; why: string }[]
-  options: { id: string; name: string; line: string; color: string; miss?: string }[]
+  options: { id: string; name: string; line: string; color: string; miss?: string; strong?: boolean }[]
   winText: string
   loseText: string
 }
@@ -125,7 +125,7 @@ function pick(id: string) {
   if (phase.value !== 'pick' || disabled.value.includes(id)) return
   const o = props.def.options.find(o => o.id === id)!
   if (id === round.value.answer) {
-    locksLeft.value--
+    locksLeft.value = Math.max(0, locksLeft.value - (o.strong ? 2 : 1))
     pickedName.value = o.name
     used.value.push(id)
     sfx.hit()
@@ -277,6 +277,7 @@ onUnmounted(() => {
 .choice-key { font-size: 11px; color: var(--color-fog-mute); padding-top: 3px; }
 .choice-text { display: grid; gap: 2px; min-width: 0; }
 .choice-name { font-family: var(--font-cond); font-weight: 700; font-size: 18px; line-height: 1.1; }
+.strong { margin-left: 8px; padding: 1px 5px; border-radius: 2px; background: var(--c); color: #fff; font-size: 11px; font-weight: 600; vertical-align: 2px; }
 .choice-line { font-size: 12.5px; line-height: 1.4; color: var(--color-fog-dim); }
 .choices.proof .choice-name { font-size: 16px; }
 .choices.proof .choice-line { font-size: 13px; }

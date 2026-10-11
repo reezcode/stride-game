@@ -11,6 +11,9 @@ let muted = (() => { try { return localStorage.getItem('stride_muted') === '1' }
 
 export function isMuted() { return muted }
 
+/** The shared context and master gain, for other sound modules. Null until the first user gesture. */
+export function audioGraph() { return { ctx, master } }
+
 export function setMuted(m: boolean) {
   muted = m
   try { localStorage.setItem('stride_muted', m ? '1' : '0') } catch { /* noop */ }

@@ -18,6 +18,15 @@
       </section>
 
       <section class="card paper anim-rise" style="animation-delay: .08s">
+        <div class="slots" role="tablist" :aria-label="$t('lobby.slots')">
+          <button v-for="s in slots" :key="s.slot" type="button" role="tab" :aria-selected="s.slot === store.slot"
+            :class="['slot', { on: s.slot === store.slot }]" @click="pickSlot(s.slot)">
+            <span class="t-label">{{ $t('lobby.slot', { n: s.slot }) }}</span>
+            <span class="slot-name">{{ s.empty ? $t('lobby.empty') : s.name }}</span>
+            <span class="slot-meta">{{ s.empty ? '—' : s.finished ? $t('lobby.finished') : $t('lobby.slotMeta', { level: s.level, ch: s.chapter }) }}</span>
+          </button>
+        </div>
+
         <template v-if="hasSave && !startingOver">
           <div class="t-label card-k">{{ $t('lobby.inProgress') }}</div>
           <div class="resume">
@@ -51,6 +60,17 @@
             </button>
           </div>
 
+          <template v-if="reached > 1">
+            <div class="lbl">{{ $t('lobby.startFrom') }}</div>
+            <div class="chapters" role="radiogroup" :aria-label="$t('lobby.startFrom')">
+              <button v-for="(p, i) in places" :key="p.id" type="button" role="radio" :aria-checked="chapter === i + 1"
+                :class="['chapter', { on: chapter === i + 1 }]" :disabled="i + 1 > reached"
+                :title="i + 1 > reached ? $t('lobby.chLocked') : undefined" @click="chapter = i + 1">
+                <b class="t-mono">{{ i + 1 }}</b> {{ p.name }}
+              </button>
+            </div>
+          </template>
+
           <p v-if="hasSave" class="warn">{{ $t('lobby.eraseWarn', { name: store.playerName }) }}</p>
           <button class="btn btn-ink wide" :disabled="!name.trim()" @click="begin">
             {{ $t('lobby.begin') }} <IconArrowRight :size="18" />
@@ -76,12 +96,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { IconArrowRight, IconLanguage } from '@tabler/icons-vue'
 import { t, setLocale, LOCALE } from '@/i18n'
 import { roomById } from '@/game/world'
-import { useGameStore, PLAYER_COLORS } from '@/stores/game'
+import { useGameStore, PLAYER_COLORS, chaptersReached } from '@/stores/game'
+import { places } from '@/data/story'
 import { paintStatic } from '@/game/paintStatic'
 import { WORLD_W, WORLD_H } from '@/game/world'
 import { unlockAudio, sfx } from '@/game/audio'
@@ -90,8 +111,18 @@ import DetectiveAvatar from '@/components/DetectiveAvatar.vue'
 const router = useRouter()
 const store  = useGameStore()
 
-const hasSave = ref(store.gameStarted)
+const hasSave = computed(() => store.gameStarted)
 const startingOver = ref(false)
+const slots = ref(store.slotSummaries())
+const reached = chaptersReached()
+const chapter = ref(1)
+
+function pickSlot(n: number) {
+  store.selectSlot(n)
+  startingOver.value = false
+  slots.value = store.slotSummaries()
+  sfx.blip()
+}
 const name  = ref('')
 const color = ref(PLAYER_COLORS[1].hex)
 const nameEl = ref<HTMLInputElement | null>(null)
@@ -108,8 +139,9 @@ function begin() {
   if (!name.value.trim()) return
   unlockAudio()
   sfx.blip()
-  store.startGame(name.value.trim(), color.value)
-  router.push('/prologue')
+  store.startGame(name.value.trim(), color.value, chapter.value)
+  // later chapters skip the prologue; the map plays that chapter's arrival
+  router.push(chapter.value === 1 ? '/prologue' : '/game')
 }
 
 function resume() {
@@ -214,6 +246,25 @@ onUnmounted(() => cancelAnimationFrame(raf))
   gap: 10px;
 }
 .card-k { color: var(--color-pen-3); margin-bottom: 6px; }
+.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; padding-bottom: 14px; border-bottom: 1px dashed var(--color-paper-line); }
+.slot {
+  display: grid; gap: 1px; padding: 8px 10px; min-width: 0;
+  text-align: left;
+  border: 1px solid var(--color-paper-line); border-radius: 3px;
+  background: #F6F2E8; color: var(--color-pen-3); cursor: pointer;
+}
+.slot:hover { border-color: var(--color-pen-3); }
+.slot.on { border-color: var(--color-pen); box-shadow: inset 0 0 0 1px var(--color-pen); background: #FBF8F1; color: var(--color-pen); }
+.slot-name { font-weight: 700; font-size: 14px; color: var(--color-pen); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slot-meta { font-size: 11.5px; }
+.chapters { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.chapter {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border: 1px solid var(--color-paper-line); border-radius: 3px;
+  background: #F6F2E8; font-size: 13px; text-align: left; cursor: pointer; color: var(--color-pen-2);
+}
+.chapter.on { border-color: var(--color-pen); box-shadow: inset 0 0 0 1px var(--color-pen); background: #FBF8F1; color: var(--color-pen); font-weight: 600; }
+.chapter:disabled { opacity: .4; cursor: not-allowed; }
 .lbl { font-size: 13px; font-weight: 600; color: var(--color-pen-2); margin-top: 6px; }
 .big-field { height: 46px; font-size: 16px; }
 .suits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }

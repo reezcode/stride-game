@@ -38,6 +38,7 @@ export const XP_RULES = {
   completion: 500,
   warden: 150,
   clue: 30,
+  wrongAccusation: 150,
   puzzle: [90, 70, 50],   // by attempt: first try, second, later
 }
 

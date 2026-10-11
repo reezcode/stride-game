@@ -23,7 +23,8 @@ export type Line =
   | { k: 'say'; who: CharId; text: string; as?: string; color?: string }
   /** Phone message. Consecutive chat lines with the same thread stack up. `mine` puts it on the right. */
   | { k: 'chat'; from: CharId; text: string; thread: string; mine: boolean; meta?: string }
-  | { k: 'choice'; who: CharId; prompt: string; answer: string; options: { id: string; label: string; reply: string }[] }
+  /** `open`: any option is accepted and reported to the caller, which decides what a wrong one costs. */
+  | { k: 'choice'; who: CharId; prompt: string; answer: string; open?: boolean; options: { id: string; label: string; reply: string }[] }
   | { k: 'proof'; title: string; text: string }
 
 type Pair = [string, string]
@@ -758,7 +759,7 @@ export const finaleIntro: Line[] = [
                'Lima penjaga. Tiga minggu kuhabiskan untuk membuatnya. Harusnya kamu diam di rumah dan berduka seperti orang normal.'),
   N('You know the voice. But you want to say the name from the evidence, not from the voice.', 'Kamu mengenali suaranya. Tapi kamu ingin menyebut nama itu berdasarkan bukti, bukan berdasarkan suara.'),
   {
-    k: 'choice', who: 'mc', answer: 'raka',
+    k: 'choice', who: 'mc', answer: 'raka', open: true,
     prompt: tr('Badge 0417 in the lab. Desk P-3. A script signed "rk". It was…', 'Kartu akses 0417 di lab. Meja P-3. Skrip bertanda "rk". Pelakunya…'),
     options: [
       { id: 'sari',  label: 'Sari',  reply: tr("No. Sari is QA. Her badge doesn't open the Identity Lab, and one badge was in there that night.", 'Bukan. Sari itu QA. Kartunya tidak bisa membuka Identity Lab, dan hanya ada satu kartu di sana malam itu.') },
@@ -770,6 +771,34 @@ export const finaleIntro: Line[] = [
   S('raka', 'Lead of the platform team. I taught you that codebase. Go on, then. You have nothing that ties any of it to me.',
             'Lead tim platform. Aku yang mengajarimu codebase itu. Silakan. Kamu tidak punya apa pun yang mengaitkan semua ini denganku.'),
 ]
+
+/** What happens if you name the wrong colleague. Played instead of the confrontation; you can try again after. */
+export const badEndings: Record<string, Line[]> = {
+  sari: [
+    S('mc', 'Sari.', 'Sari.'),
+    N('The figure at the podium does not turn round. You hear the smallest breath of a laugh.', 'Sosok di podium itu tidak menoleh. Kamu mendengar tawa yang nyaris tak terdengar.'),
+    S('unknown', "Sari. Yes. That would explain a great deal, wouldn't it. I will make sure security hears your theory.",
+                 'Sari. Ya. Itu akan menjelaskan banyak hal, bukan. Akan kupastikan satpam mendengar teorimu.'),
+    N("By morning Sari's badge is suspended on your word. She was the one person who told you not to go home. The progress bar on the wall starts moving again.",
+      'Menjelang pagi, kartu akses Sari dibekukan atas ucapanmu. Padahal dialah satu-satunya orang yang tidak menyuruhmu pulang. Bilah progres di dinding mulai bergerak lagi.'),
+    DARK,
+    CARD('The wrong name', 'Nama yang salah',
+      ['The wipe finished at 06:12. The five files you sealed each ruled somebody out, and you did not read them.', 'Penghapusan selesai pukul 06.12. Kelima berkas yang kamu segel masing-masing menyingkirkan satu nama, dan kamu tidak membacanya.'],
+      { motif: 'grief', small: ['Sari is QA. Her badge has never opened the Identity Lab. Go back and look at what you can prove.', 'Sari itu QA. Kartunya tidak pernah bisa membuka Identity Lab. Kembalilah dan lihat apa yang bisa kamu buktikan.'] }),
+  ],
+  dimas: [
+    S('mc', 'Dimas.', 'Dimas.'),
+    N('A pause. Then the figure nods slowly, as if you have said something wise.', 'Hening sejenak. Lalu sosok itu mengangguk pelan, seolah kamu baru mengucapkan sesuatu yang bijak.'),
+    S('unknown', 'Dimas, working remotely from Lombok. Clever. I would never have thought of it. You should tell Bu Ratna straight away.',
+                 'Dimas, bekerja jarak jauh dari Lombok. Cerdik. Aku tidak akan terpikir sampai ke situ. Sebaiknya kamu segera lapor ke Bu Ratna.'),
+    N('Dimas is taken off a plane two days later, still sunburnt, still asking what he is supposed to have done. By then there is nothing left on the servers to clear him.',
+      'Dua hari kemudian Dimas diturunkan dari pesawat, kulitnya masih terbakar matahari, masih bertanya apa kesalahannya. Saat itu sudah tidak ada apa pun di server yang bisa membersihkan namanya.'),
+    DARK,
+    CARD('The wrong name', 'Nama yang salah',
+      ['The wipe finished at 06:12. The five files you sealed each ruled somebody out, and you did not read them.', 'Penghapusan selesai pukul 06.12. Kelima berkas yang kamu segel masing-masing menyingkirkan satu nama, dan kamu tidak membacanya.'],
+      { motif: 'grief', small: ['The admin requests came from a wired port on this floor, in a week Dimas was not in the country. Go back and look at what you can prove.', 'Permintaan admin itu datang dari port kabel di lantai ini, pada minggu ketika Dimas tidak ada di negeri ini. Kembalilah dan lihat apa yang bisa kamu buktikan.'] }),
+  ],
+}
 
 export interface Denial { text: string; answer: string; why: string }
 

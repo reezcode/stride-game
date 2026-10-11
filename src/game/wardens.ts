@@ -14,12 +14,14 @@ export interface Warden {
   path: { x: number; y: number }[]
   repath: number
   stun: number
+  lure: { x: number; y: number; t: number } | null   // a decoy it has gone to look at
 }
 
 const SPEED_PATROL = 46
 const SPEED_CHASE = 104
 const SIGHT_WALK = 125
 const SIGHT_RUN = 215
+const SIGHT_SNEAK = 68
 const TOUCH = 22
 
 export function makeWardens(alive: (id: string) => boolean): Warden[] {
@@ -27,7 +29,7 @@ export function makeWardens(alive: (id: string) => boolean): Warden[] {
     def,
     room: rooms.find(r => r.scenarioId === def.id)!,
     x: def.patrol[0].x, y: def.patrol[0].y,
-    state: 'patrol', wp: 1, path: [], repath: 0, stun: 0,
+    state: 'patrol', wp: 1, path: [], repath: 0, stun: 0, lure: null,
   }))
 }
 
@@ -35,16 +37,27 @@ function inRoom(r: Room, x: number, y: number) {
   return x >= r.x * TILE && x < (r.x + r.w) * TILE && y >= r.y * TILE && y < (r.y + r.h) * TILE
 }
 
+/** Sends a warden to look at a spot for a few seconds. It sees less while it does. */
+export function lureWarden(w: Warden, x: number, y: number) {
+  if (w.state === 'chase') return false
+  w.lure = { x, y, t: 6 }
+  w.path = []
+  return true
+}
+
 /** Advances one warden. Returns 'spotted' on the frame it notices the player, 'touch' when it reaches them. */
-export function stepWarden(w: Warden, dt: number, player: { x: number; y: number; running: boolean }): 'spotted' | 'touch' | null {
+export function stepWarden(w: Warden, dt: number, player: { x: number; y: number; running: boolean; sneaking: boolean }): 'spotted' | 'touch' | null {
   if (w.stun > 0) { w.stun -= dt; return null }
 
   const dist = Math.hypot(player.x - w.x, player.y - w.y)
   const playerInside = inRoom(w.room, player.x, player.y)
   let event: 'spotted' | 'touch' | null = null
 
-  if (w.state === 'patrol' && playerInside && dist < (player.running ? SIGHT_RUN : SIGHT_WALK)) {
-    w.state = 'chase'; w.path = []; w.repath = 0
+  if (w.lure && (w.lure.t -= dt) <= 0) { w.lure = null; w.path = [] }
+  const sight = (player.sneaking ? SIGHT_SNEAK : player.running ? SIGHT_RUN : SIGHT_WALK) * (w.lure ? 0.6 : 1)
+
+  if (w.state === 'patrol' && playerInside && dist < sight) {
+    w.state = 'chase'; w.path = []; w.repath = 0; w.lure = null
     event = 'spotted'
   } else if (w.state === 'chase' && !playerInside) {
     w.state = 'patrol'; w.path = []
@@ -54,7 +67,9 @@ export function stepWarden(w: Warden, dt: number, player: { x: number; y: number
 
   w.repath -= dt
   if (!w.path.length || (w.state === 'chase' && w.repath <= 0)) {
-    const goal = w.state === 'chase' ? player : w.def.patrol[w.wp]
+    const goal = w.state === 'chase' ? player : w.lure ?? w.def.patrol[w.wp]
+    // standing over the decoy: nothing to do until it fades
+    if (w.lure && w.state !== 'chase' && Math.hypot(w.lure.x - w.x, w.lure.y - w.y) < 20) return event
     w.path = findPath(w.x, w.y, goal.x, goal.y) ?? []
     w.repath = 0.45
     if (!w.path.length && w.state === 'patrol') w.wp = (w.wp + 1) % w.def.patrol.length
@@ -66,7 +81,7 @@ export function stepWarden(w: Warden, dt: number, player: { x: number; y: number
     const d = Math.hypot(dx, dy)
     if (d < 5) {
       w.path.shift()
-      if (!w.path.length && w.state === 'patrol') w.wp = (w.wp + 1) % w.def.patrol.length
+      if (!w.path.length && w.state === 'patrol' && !w.lure) w.wp = (w.wp + 1) % w.def.patrol.length
     } else {
       const sp = (w.state === 'chase' ? SPEED_CHASE : SPEED_PATROL) * dt
       const before = { x: w.x, y: w.y }

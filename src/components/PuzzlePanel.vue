@@ -41,7 +41,10 @@
 
         <div v-if="solved" class="lesson">
           <span class="lesson-letter">{{ puzzle.letter }}</span>
-          <p>{{ puzzle.lesson }}</p>
+          <div>
+            <p>{{ puzzle.lesson }}</p>
+            <p class="perk">{{ $t('puzzle.perk', { name: counter }) }}</p>
+          </div>
         </div>
       </div>
 
@@ -66,7 +69,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { IconX, IconArrowRight } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
-import type { Puzzle } from '@/data/story'
+import { COUNTERS, type Puzzle } from '@/data/story'
 import { STRIDE_BY } from '@/game/stride'
 import { rng } from '@/game/sprites'
 import { sfx } from '@/game/audio'
@@ -78,6 +81,7 @@ const emit = defineEmits<{ close: []; solved: [xp: number] }>()
 const store = useGameStore()
 const meta = computed(() => STRIDE_BY[props.puzzle.letter])
 const n = props.puzzle.items.length
+const counter = COUNTERS.find(c => c.id === props.puzzle.letter)?.name ?? ''
 
 const already = store.puzzlesDone.includes(props.puzzle.id)
 const solved = ref(already)
@@ -231,6 +235,7 @@ onUnmounted(() => { window.removeEventListener('keydown', onKey, true); sfx.clos
 .lesson { display: flex; gap: 14px; margin-top: 18px; padding: 14px 16px; border: 1px solid var(--cat); border-radius: 3px; background: #FBF8F1; }
 .lesson-letter { font-family: var(--font-cond); font-weight: 700; font-size: 44px; line-height: .9; color: var(--cat); }
 .lesson p { margin: 0; font-size: 15px; line-height: 1.6; }
+.lesson .perk { margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--cat); }
 
 .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; border-top: 1px solid var(--color-paper-line); background: var(--color-paper-2); }
 .muted { font-size: 13px; color: var(--color-pen-3); min-width: 0; }

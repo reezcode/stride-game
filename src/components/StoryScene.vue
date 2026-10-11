@@ -74,7 +74,7 @@ import { sfx, motif, unlockAudio } from '@/game/audio'
 
 // `overlay`: played on top of the game, so a scene without a backdrop lets the world show through
 const props = withDefaults(defineProps<{ lines: Line[]; canSkip?: boolean; overlay?: boolean }>(), { canSkip: true, overlay: false })
-const emit = defineEmits<{ done: [] }>()
+const emit = defineEmits<{ done: []; pick: [id: string] }>()
 
 const store = useGameStore()
 const name = computed(() => store.playerName || 'You')
@@ -167,7 +167,9 @@ function advance() {
 function choose(id: string) {
   const l = line.value
   if (l?.k !== 'choice') return
+  if (l.open) emit('pick', id)
   if (id === l.answer) { sfx.hit(); idx.value++; show(); return }
+  if (l.open) return   // the caller takes it from here
   sfx.denied()
   ruledOut.value.push(id)
   type(l.options.find(o => o.id === id)!.reply)
