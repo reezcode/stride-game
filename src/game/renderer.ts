@@ -104,7 +104,9 @@ export class Renderer {
     this.canvas.height = Math.round(vh * dpr)
     this.light.width = this.canvas.width
     this.light.height = this.canvas.height
-    const want = Math.max(1, Math.min(2, Math.ceil(dpr * this.zoom * 2) / 2))
+    // stay inside the largest canvas mobile browsers will allocate
+    const cap = Math.floor(Math.sqrt(16.7e6 / (WORLD_W * WORLD_H)) * 2) / 2
+    const want = Math.max(1, Math.min(2, cap, Math.ceil(dpr * this.zoom * 2) / 2))
     if (want !== this.layerScale) {
       this.layerScale = want
       this.layer = paintStatic(want)
@@ -560,7 +562,7 @@ export class Renderer {
         g.restore()
       }
 
-      if (it.kind === 'evidence' || it.kind === 'clue' || it.kind === 'npc') {
+      if (it.kind === 'evidence' || it.kind === 'clue' || it.kind === 'npc' || it.kind === 'puzzle') {
         const st = s.caseStatus[it.scenarioId!]
         if (st === 'solved' || s.foundEvidence.has(it.id)) continue
         const d = Math.hypot(it.x - p.x, it.y - p.y)

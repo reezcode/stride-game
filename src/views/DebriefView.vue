@@ -1,15 +1,15 @@
 <template>
   <div class="page">
     <nav class="topbar">
-      <button class="back" @click="router.push('/game')"><IconArrowLeft :size="18" /> Back to the floor</button>
-      <button class="back" @click="confirmReset = true"><IconRefresh :size="17" /> Start over</button>
+      <button class="back" @click="router.push('/game')"><IconArrowLeft :size="18" /> {{ $t('debrief.back') }}</button>
+      <button class="back" @click="confirmReset = true"><IconRefresh :size="17" /> {{ $t('debrief.startOver') }}</button>
     </nav>
 
     <article class="report paper anim-rise">
       <header class="r-head">
         <div>
-          <div class="t-label kicker">Sealed record · PayVault HQ · 14th floor · sent to legal and the cyber unit</div>
-          <h1 class="t-display title">What was done to Laras</h1>
+          <div class="t-label kicker">{{ $t('debrief.kicker') }}</div>
+          <h1 class="t-display title">{{ $t('debrief.title') }}</h1>
           <div class="agent">
             <DetectiveAvatar :color="store.playerColor" :size="44" />
             <div>
@@ -22,22 +22,22 @@
           <span class="stamp anim-stamp grade-stamp" :style="{ color: store.letterGrade.color }">
             {{ store.letterGrade.grade }}
           </span>
-          <div class="grade-label">Accuracy grade</div>
+          <div class="grade-label">{{ $t('debrief.grade') }}</div>
         </div>
       </header>
 
       <dl class="stats">
-        <div><dt>Total XP</dt><dd class="t-mono">{{ store.totalXP.toLocaleString() }}</dd></div>
-        <div><dt>Threats identified</dt><dd class="t-mono">{{ store.overallAccuracy }}%</dd></div>
-        <div><dt>Evidence recovered</dt><dd class="t-mono">{{ store.evidenceCount }}/{{ store.evidenceTotal }}</dd></div>
-        <div><dt>Hints used</dt><dd class="t-mono">{{ hintsUsed }}</dd></div>
+        <div><dt>{{ $t('debrief.totalXp') }}</dt><dd class="t-mono">{{ store.totalXP.toLocaleString() }}</dd></div>
+        <div><dt>{{ $t('debrief.identified') }}</dt><dd class="t-mono">{{ store.overallAccuracy }}%</dd></div>
+        <div><dt>{{ $t('debrief.evidence') }}</dt><dd class="t-mono">{{ store.evidenceCount }}/{{ store.evidenceTotal }}</dd></div>
+        <div><dt>{{ $t('debrief.hints') }}</dt><dd class="t-mono">{{ hintsUsed }}</dd></div>
       </dl>
 
       <section>
-        <h2 class="h">STRIDE coverage <span class="h-meta">expected threats you identified, by category</span></h2>
+        <h2 class="h">{{ $t('debrief.coverage') }} <span class="h-meta">{{ $t('debrief.coverageMeta') }}</span></h2>
         <ul class="coverage">
           <li v-for="cov in store.strideCoverage" :key="cov.letter"
-            :title="`${STRIDE_BY[cov.letter].name}: ${cov.hit} of ${cov.total} identified`">
+            :title="`${STRIDE_BY[cov.letter].name}: ${cov.hit}/${cov.total}`">
             <span class="cov-l" :style="{ color: STRIDE_BY[cov.letter].color }">{{ cov.letter }}</span>
             <span class="cov-name">{{ STRIDE_BY[cov.letter].name }}</span>
             <span class="cov-track">
@@ -46,11 +46,11 @@
             <span class="cov-val t-mono">{{ cov.total ? `${cov.hit}/${cov.total}` : '—' }}</span>
           </li>
         </ul>
-        <p class="cov-note">Categories with no expected threats in these five cases show a dash.</p>
+        <p class="cov-note">{{ $t('debrief.covNote') }}</p>
       </section>
 
       <section>
-        <h2 class="h">Case by case</h2>
+        <h2 class="h">{{ $t('debrief.byCase') }}</h2>
         <div v-for="c in store.cases" :key="c.scenarioId" class="case">
           <div class="case-top">
             <span class="t-mono case-code">{{ c.scenarioId }}</span>
@@ -58,7 +58,7 @@
               <b>{{ scenarioTitle(c.scenarioId) }}</b>
               <span class="muted">{{ roomOf(c.scenarioId) }}</span>
             </div>
-            <span class="case-score t-mono" :style="{ color: scoreColor(c.score) }">{{ c.solved ? `${c.score}%` : 'open' }}</span>
+            <span class="case-score t-mono" :style="{ color: scoreColor(c.score) }">{{ c.solved ? `${c.score}%` : $t('debrief.open') }}</span>
             <span class="case-xp t-mono">+{{ c.xpEarned }} XP</span>
           </div>
 
@@ -68,14 +68,14 @@
                 <IconCheck :size="14" stroke-width="2.6" /> {{ STRIDE_BY[cat].name }}
               </span>
               <span v-for="cat in c.missed" :key="'m' + cat" class="chip miss" :style="{ '--cat': STRIDE_BY[cat].color }">
-                <IconX :size="14" stroke-width="2.6" /> Missed {{ STRIDE_BY[cat].name }}
+                <IconX :size="14" stroke-width="2.6" /> {{ $t('debrief.missed', { name: STRIDE_BY[cat].name }) }}
               </span>
               <span v-for="cat in c.falsePositives" :key="'f' + cat" class="chip fp" :style="{ '--cat': STRIDE_BY[cat].color }">
-                <IconMinus :size="14" stroke-width="2.6" /> {{ STRIDE_BY[cat].name }} did not apply
+                <IconMinus :size="14" stroke-width="2.6" /> {{ $t('debrief.notApply', { name: STRIDE_BY[cat].name }) }}
               </span>
             </div>
             <div v-for="gt in missedTruths(c.scenarioId, c.missed)" :key="gt.title" class="truth" :style="{ '--cat': STRIDE_BY[gt.category].color }">
-              <div class="truth-title"><b>{{ gt.title }}</b> <span class="muted">· {{ gt.severity }}</span></div>
+              <div class="truth-title"><b>{{ gt.title }}</b> <span class="muted">· {{ $t(`sev.${gt.severity}`) }}</span></div>
               <p>{{ gt.explanation }}</p>
             </div>
           </div>
@@ -83,21 +83,21 @@
       </section>
 
       <footer class="r-foot">
-        <span class="muted">Filed {{ filedAt }}</span>
+        <span class="muted">{{ $t('debrief.filed', { when: filedAt }) }}</span>
         <div class="r-actions">
-          <button class="btn btn-outline" @click="router.push('/game')">Back to the floor</button>
-          <button class="btn btn-ink" @click="confirmReset = true">Start over</button>
+          <button class="btn btn-outline" @click="router.push('/game')">{{ $t('debrief.back') }}</button>
+          <button class="btn btn-ink" @click="confirmReset = true">{{ $t('debrief.startOver') }}</button>
         </div>
       </footer>
     </article>
 
     <div v-if="confirmReset" class="overlay" @mousedown.self="confirmReset = false">
       <div class="confirm paper anim-rise" role="alertdialog" aria-modal="true">
-        <h3>Start over?</h3>
-        <p>This erases {{ store.playerName }}'s cases, evidence, XP and manual progress.</p>
+        <h3>{{ $t('debrief.confirmTitle') }}</h3>
+        <p>{{ $t('debrief.confirmBody', { name: store.playerName }) }}</p>
         <div class="confirm-actions">
-          <button class="btn btn-outline" @click="confirmReset = false">Keep this save</button>
-          <button class="btn btn-alarm" @click="resetAndRestart">Erase and restart</button>
+          <button class="btn btn-outline" @click="confirmReset = false">{{ $t('debrief.keep') }}</button>
+          <button class="btn btn-alarm" @click="resetAndRestart">{{ $t('debrief.erase') }}</button>
         </div>
       </div>
     </div>
@@ -113,13 +113,14 @@ import { scenarios } from '@/data'
 import { rooms } from '@/game/world'
 import { STRIDE_BY, rankFor } from '@/game/stride'
 import DetectiveAvatar from '@/components/DetectiveAvatar.vue'
+import { LOCALE } from '@/i18n'
 
 const router = useRouter()
 const store  = useGameStore()
 const confirmReset = ref(false)
 
 const hintsUsed = computed(() => store.cases.reduce((a, c) => a + c.hintsUsed, 0))
-const filedAt = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+const filedAt = new Date().toLocaleString(LOCALE === 'id' ? 'id-ID' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 
 function scenarioTitle(id: string) { return scenarios.find(s => s.id === id)?.title ?? id }
 function roomOf(id: string) { return rooms.find(r => r.scenarioId === id)?.name ?? '' }

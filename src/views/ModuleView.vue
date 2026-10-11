@@ -1,13 +1,13 @@
 <template>
   <div class="page">
     <nav class="topbar">
-      <RouterLink to="/learn" class="back"><IconArrowLeft :size="18" /> Field manual</RouterLink>
-      <button class="back" @click="router.push('/game')">Back to the floor</button>
+      <RouterLink to="/learn" class="back"><IconArrowLeft :size="18" /> {{ $t('learn.manual') }}</RouterLink>
+      <button class="back" @click="router.push('/game')">{{ $t('learn.back') }}</button>
     </nav>
 
     <article v-if="moduleData" class="chapter paper anim-rise" :style="{ '--cat': color }">
       <header class="ch-head">
-        <div class="t-label kicker">Chapter {{ chapterNo }} of 6</div>
+        <div class="t-label kicker">{{ $t('learn.chapterOf', { n: chapterNo }) }}</div>
         <div class="ch-title-row">
           <span class="ch-letter">{{ moduleData.letter }}</span>
           <div>
@@ -23,7 +23,7 @@
       </header>
 
       <section>
-        <h2 class="h">Where systems usually fail</h2>
+        <h2 class="h">{{ $t('learn.fails') }}</h2>
         <ol class="fails">
           <li v-for="fp in moduleData.failPoints" :key="fp.title">
             <component :is="failPointIcons[fp.icon] ?? IconAlertTriangle" :size="20" stroke-width="1.7" class="fail-icon" />
@@ -36,7 +36,7 @@
       </section>
 
       <section>
-        <h2 class="h">In the wild</h2>
+        <h2 class="h">{{ $t('learn.wild') }}</h2>
         <div v-for="(ex, i) in moduleData.examples" :key="ex.title" class="example">
           <div class="ex-head">
             <span class="t-mono ex-no">{{ moduleData.letter }}.{{ i + 1 }}</span>
@@ -49,15 +49,15 @@
 
       <section>
         <h2 class="h">
-          Knowledge check
-          <span class="h-meta">2 of {{ moduleData.quiz.length }} to pass</span>
+          {{ $t('learn.check') }}
+          <span class="h-meta">{{ $t('learn.toPass', { n: moduleData.quiz.length }) }}</span>
         </h2>
 
         <div v-if="quizSubmitted" class="result" :class="passed ? 'pass' : 'fail'">
           <div class="result-score t-display">{{ quizScore }}/{{ moduleData.quiz.length }}</div>
           <div>
-            <div class="result-title">{{ passed ? `Passed. ${moduleData.name} is in your toolkit.` : 'Not quite. Review the chapter and try again.' }}</div>
-            <div class="result-sub">{{ passed ? (nextLetter ? `Chapter ${chapterNo + 1} is unlocked.` : 'That was the last chapter.') : 'You need at least two correct answers.' }}</div>
+            <div class="result-title">{{ passed ? $t('learn.resPass', { name: moduleData.name }) : $t('learn.resFail') }}</div>
+            <div class="result-sub">{{ passed ? (nextLetter ? $t('learn.resNext', { n: chapterNo + 1 }) : $t('learn.resLast')) : $t('learn.resNeed') }}</div>
           </div>
         </div>
 
@@ -72,17 +72,17 @@
 
         <div class="actions">
           <template v-if="!quizSubmitted">
-            <span class="muted">{{ answeredCount }}/{{ moduleData.quiz.length }} answered</span>
-            <button class="btn btn-ink" :disabled="!allQuestionsAnswered" @click="submitQuiz">Check answers</button>
+            <span class="muted">{{ $t('learn.answered', { a: answeredCount, b: moduleData.quiz.length }) }}</span>
+            <button class="btn btn-ink" :disabled="!allQuestionsAnswered" @click="submitQuiz">{{ $t('learn.checkBtn') }}</button>
           </template>
           <template v-else-if="!passed">
             <span></span>
-            <button class="btn btn-ink" @click="retryQuiz"><IconRefresh :size="17" /> Try again</button>
+            <button class="btn btn-ink" @click="retryQuiz"><IconRefresh :size="17" /> {{ $t('learn.retry') }}</button>
           </template>
           <template v-else>
-            <button class="btn btn-outline" @click="router.push('/learn')">All chapters</button>
+            <button class="btn btn-outline" @click="router.push('/learn')">{{ $t('learn.all') }}</button>
             <button class="btn btn-ink" @click="goNext">
-              {{ nextLetter ? `Next: ${nextName}` : 'Return to the floor' }} <IconArrowRight :size="17" />
+              {{ nextLetter ? $t('learn.next', { name: nextName }) : $t('learn.return') }} <IconArrowRight :size="17" />
             </button>
           </template>
         </div>
@@ -90,8 +90,8 @@
     </article>
 
     <div v-else class="missing">
-      <p>That chapter doesn’t exist.</p>
-      <RouterLink to="/learn" class="btn btn-ghost">Back to the field manual</RouterLink>
+      <p>{{ $t('learn.missing') }}</p>
+      <RouterLink to="/learn" class="btn btn-ghost">{{ $t('learn.backManual') }}</RouterLink>
     </div>
   </div>
 </template>

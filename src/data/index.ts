@@ -1,4 +1,10 @@
 // Fintech App: "PayVault" — a fictional B2C digital payment & wallet app
+//
+// The text here is the Indonesian original. English lives in ./index.en.ts and
+// is laid over it at the bottom of this file when the game runs in English.
+import { LOCALE } from '@/i18n'
+import { scenariosEn, strideEn } from './index.en'
+
 export interface Scenario {
   id: string
   code: string
@@ -25,7 +31,7 @@ export interface Scenario {
 export const APP_NAME = 'PayVault'
 export const APP_DESCRIPTION = 'Digital wallet & payment platform serving 2M+ users'
 
-export const scenarios: Scenario[] = [
+const scenariosId: Scenario[] = [
   {
     id: 'SC-001',
     code: 'SC-001',
@@ -286,7 +292,7 @@ Content-Type: application/pdf
   },
 ]
 
-export const strideData = {
+const strideId = {
   S: {
     letter: 'S',
     name: 'Spoofing',
@@ -782,5 +788,20 @@ UPDATE users SET name='Budi', role='admin' WHERE id='USR-0042'
     ],
   },
 }
+
+/** Lays translated strings over the original, matching objects by key and arrays by position. */
+function overlay<T>(base: T, over: unknown): T {
+  if (over === undefined || over === null) return base
+  if (Array.isArray(base)) return base.map((b, i) => overlay(b, (over as unknown[])[i])) as T
+  if (base && typeof base === 'object') {
+    const out = { ...base } as Record<string, unknown>
+    for (const [k, v] of Object.entries(over as object)) out[k] = overlay(out[k], v)
+    return out as T
+  }
+  return over as T
+}
+
+export const scenarios: Scenario[] = LOCALE === 'en' ? overlay(scenariosId, scenariosEn) : scenariosId
+export const strideData: typeof strideId = LOCALE === 'en' ? overlay(strideId, strideEn) : strideId
 
 export type StrideCategory = keyof typeof strideData

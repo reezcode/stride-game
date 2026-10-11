@@ -23,7 +23,7 @@
     </div>
 
     <p v-if="submitted" class="why">
-      <b>{{ isCorrect ? 'Correct.' : 'Not this one.' }}</b> {{ question.explanation }}
+      <b>{{ isCorrect ? $t('learn.correct') : $t('learn.wrong') }}</b> {{ question.explanation }}
     </p>
   </fieldset>
 </template>

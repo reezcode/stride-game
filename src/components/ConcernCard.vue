@@ -3,24 +3,24 @@
     <header class="concern-head">
       <span class="letter">{{ category }}</span>
       <div>
-        <div class="name">{{ meta.name }}</div>
-        <div class="question">{{ meta.question }}</div>
+        <div class="name">{{ meta.question }}</div>
+        <div class="question">{{ meta.name }}</div>
       </div>
     </header>
 
     <div class="concern-body">
-      <label class="lbl" :for="`title-${category}`">Finding <span class="req">required</span></label>
+      <label class="lbl" :for="`title-${category}`">{{ $t('concern.finding') }} <span class="req">{{ $t('concern.required') }}</span></label>
       <input
         :id="`title-${category}`"
         v-model="localTitle"
         class="field"
-        :placeholder="`What is the ${meta.name.toLowerCase()} threat here?`"
+        :placeholder="$t('concern.ph')"
         maxlength="80"
         @input="emitUpdate"
       />
 
-      <div class="lbl">Severity</div>
-      <div class="sev" role="radiogroup" :aria-label="`${meta.name} severity`">
+      <div class="lbl">{{ $t('concern.severity') }}</div>
+      <div class="sev" role="radiogroup" :aria-label="$t('concern.severity')">
         <button
           v-for="sev in SEVERITIES" :key="sev.id"
           type="button"
@@ -29,17 +29,17 @@
           :class="{ on: localSeverity === sev.id }"
           :style="{ '--sev': sev.color }"
           @click="setSeverity(sev.id)"
-        >{{ sev.id }}</button>
+        >{{ $t(`sev.${sev.id}`) }}</button>
       </div>
 
-      <label class="lbl" :for="`exp-${category}`">Reasoning <span class="opt">optional</span></label>
+      <label class="lbl" :for="`exp-${category}`">{{ $t('concern.reasoning') }} <span class="opt">{{ $t('concern.optional') }}</span></label>
       <textarea
         :id="`exp-${category}`"
         v-model="localExplanation"
         class="field"
         rows="2"
         maxlength="500"
-        placeholder="Which evidence points to it, and what could an attacker do?"
+        :placeholder="$t('concern.ph2')"
         @input="emitUpdate"
       ></textarea>
     </div>

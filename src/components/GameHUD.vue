@@ -4,9 +4,9 @@
       <DetectiveAvatar :color="store.playerColor" :size="34" />
       <div class="who-text">
         <div class="who-name">{{ store.playerName }}</div>
-        <div class="who-rank">Lv {{ store.level }} · {{ rank }}</div>
+        <div class="who-rank">{{ $t('hud.level', { n: store.level }) }} · {{ rank }}</div>
       </div>
-      <div class="resolve" :title="`Resolve ${store.resolve}/${store.maxResolve}: how many mistakes you can take against a warden`">
+      <div class="resolve" :title="$t('hud.resolve', { a: store.resolve, b: store.maxResolve })">
         <IconHeartbeat :size="15" stroke-width="1.8" />
         <span class="res-track"><span class="res-fill" :style="{ width: `${(store.resolve / store.maxResolve) * 100}%` }"></span></span>
       </div>
@@ -21,23 +21,23 @@
     </ol>
 
     <div class="tools">
-      <div class="stat" title="Clues collected">
+      <div class="stat" :title="$t('hud.clues')">
         <IconFileSearch :size="16" stroke-width="1.8" />
-        <span class="t-mono">{{ store.evidenceCount + store.storyClues.length }}<span class="dim">/{{ store.evidenceTotal + storyTotal }}</span></span>
+        <span class="t-mono">{{ store.evidenceCount + store.storyClues.length + store.puzzlesDone.length }}<span class="dim">/{{ store.evidenceTotal + storyTotal }}</span></span>
       </div>
-      <div class="stat xp" :title="lvl.next === null ? 'Top level' : `${lvl.next - store.totalXP} XP to level ${lvl.level + 1}`">
+      <div class="stat xp" :title="lvl.next === null ? $t('hud.xpTop') : $t('hud.xpNext', { n: lvl.next - store.totalXP, l: lvl.level + 1 })">
         <span class="t-mono">{{ store.totalXP.toLocaleString() }}</span>
         <span class="dim t-mono">XP</span>
         <span class="xp-track"><span class="xp-fill" :style="{ width: `${lvl.pct}%` }"></span></span>
       </div>
-      <button class="icon-btn" title="The manual Laras read" @click="$emit('manual')">
+      <button class="icon-btn" :title="$t('hud.manual')" @click="$emit('manual')">
         <IconBook2 :size="18" stroke-width="1.8" />
       </button>
-      <button class="icon-btn" :title="muted ? 'Unmute (M)' : 'Mute (M)'" @click="$emit('toggleSound')">
+      <button class="icon-btn" :title="muted ? $t('hud.unmute') : $t('hud.mute')" @click="$emit('toggleSound')">
         <IconVolumeOff v-if="muted" :size="18" stroke-width="1.8" />
         <IconVolume v-else :size="18" stroke-width="1.8" />
       </button>
-      <button class="icon-btn" title="Menu (Esc)" @click="$emit('menu')">
+      <button class="icon-btn" :title="$t('hud.menu')" @click="$emit('menu')">
         <IconMenu2 :size="18" stroke-width="1.8" />
       </button>
     </div>
@@ -51,7 +51,7 @@ import { useGameStore } from '@/stores/game'
 import { rooms } from '@/game/world'
 import { scenarios } from '@/data'
 import { rankFor, levelProgress } from '@/game/stride'
-import { clues, talks } from '@/data/story'
+import { clues, talks, puzzles } from '@/data/story'
 import DetectiveAvatar from './DetectiveAvatar.vue'
 
 defineProps<{ muted: boolean; place: string; showCases: boolean }>()
@@ -59,7 +59,7 @@ defineEmits<{ manual: []; menu: []; toggleSound: [] }>()
 
 const store = useGameStore()
 const rank = computed(() => rankFor(store.totalXP))
-const storyTotal = Object.keys(clues).length + Object.keys(talks).length
+const storyTotal = Object.keys(clues).length + Object.keys(talks).length + puzzles.length
 const lvl  = computed(() => levelProgress(store.totalXP))
 
 const caseRows = computed(() => scenarios.map(s => {

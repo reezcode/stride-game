@@ -299,6 +299,43 @@ const SCENES: Record<ArtId, (g: Ctx, t: number, player: Look) => void> = {
     g.textAlign = 'start'
   },
 
+  /** The faculty building after hours: one lit window, a chained gate. */
+  campus(g, t) {
+    sky(g, ['#080C16', '#121B2E', '#1E2A42'], 0, 720)
+    const R = rng(4)
+    for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(230,235,255,${0.2 + R() * 0.5})`; g.fillRect(R() * W, R() * 260, 2, 2) }
+    g.fillStyle = '#161B24'; g.fillRect(0, 720, W, 180)
+    g.fillStyle = '#2C3340'; g.fillRect(260, 220, 1080, 500)
+    g.fillStyle = '#232934'; g.fillRect(230, 190, 1140, 40)
+    g.fillStyle = '#3A4252'; g.fillRect(700, 250, 200, 470)
+    g.fillStyle = '#D8CDB0'; g.font = '700 26px "IBM Plex Sans Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+    g.fillText('FAKULTAS EKONOMI', 800, 290)
+    for (let f = 0; f < 3; f++) for (let c = 0; c < 8; c++) {
+      const x = 300 + c * 128 + (c > 3 ? 40 : 0), y = 330 + f * 124
+      if (x > 660 && x < 900) continue
+      const lit = f === 2 && c === 1
+      g.fillStyle = lit ? '#F2C879' : '#141A24'; g.fillRect(x, y, 84, 70)
+      g.fillStyle = '#232934'; g.fillRect(x + 40, y, 4, 70)
+      if (lit) { glow(g, x + 42, y + 35, 260, '#F2C879', 0.24 + Math.sin(t * 2) * 0.01); g.fillStyle = '#3E4E78'; rr(g, x + 50, y + 22, 22, 48, 9); g.fill() }
+    }
+    g.fillStyle = '#10141B'; g.fillRect(760, 560, 80, 160)
+    // notice board by the door, with one pale gap
+    g.fillStyle = '#4A3B2C'; g.fillRect(920, 560, 150, 110)
+    g.fillStyle = '#7C6A52'; g.fillRect(928, 568, 134, 94)
+    for (const [x, y, c] of [[936, 576, '#E9E4D6'], [984, 580, '#C8442F'], [940, 620, '#8FC7D9']] as const) { g.fillStyle = c; g.fillRect(x, y, 38, 34) }
+    g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 2; g.setLineDash([5, 5]); g.strokeRect(1000, 616, 50, 40); g.setLineDash([])
+    // gate, chained
+    g.strokeStyle = '#0B0E13'; g.lineWidth = 7
+    for (let x = 80; x < W - 60; x += 46) { g.beginPath(); g.moveTo(x, 900); g.lineTo(x, 640); g.stroke() }
+    g.lineWidth = 9; g.beginPath(); g.moveTo(60, 660); g.lineTo(W - 60, 660); g.stroke()
+    g.strokeStyle = '#8E97A6'; g.lineWidth = 5
+    g.beginPath(); g.arc(800, 700, 26, 0, Math.PI * 2); g.stroke()
+    // the guard's torch
+    glow(g, 1330 + Math.sin(t * 0.7) * 60, 800, 220, '#FFF1C8', 0.22)
+    g.fillStyle = '#05070A'; rr(g, 1420, 690, 54, 150, 20); g.fill(); g.beginPath(); g.arc(1447, 668, 24, 0, Math.PI * 2); g.fill()
+    g.textAlign = 'start'
+  },
+
   /** PayVault tower with one floor in alarm. */
   tower(g, t) {
     sky(g, ['#06080D', '#0D1422', '#182238'], 0, 780)

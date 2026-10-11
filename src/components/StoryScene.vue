@@ -5,7 +5,7 @@
     <div class="shade" aria-hidden="true"></div>
 
     <div v-if="backdrop.label" class="t-label where">{{ backdrop.label }}</div>
-    <button v-if="canSkip" class="skip" @click.stop="skip">Skip <IconPlayerTrackNext :size="15" /></button>
+    <button v-if="canSkip" class="skip" @click.stop="skip">{{ $t('scene.skip') }} <IconPlayerTrackNext :size="15" /></button>
 
     <!-- Title card -->
     <Transition name="fade" mode="out-in">
@@ -35,10 +35,10 @@
     <!-- Proof -->
     <Transition name="fade">
       <div v-if="line?.k === 'proof'" :key="idx" class="proof paper">
-        <div class="t-label proof-k">Proof secured</div>
+        <div class="t-label proof-k">{{ $t('scene.proofK') }}</div>
         <div class="proof-title">{{ line.title }}</div>
         <p>{{ line.text }}</p>
-        <div class="proof-foot">Sealed, copied off-site. Nobody can wipe this one.</div>
+        <div class="proof-foot">{{ $t('scene.proofFoot') }}</div>
       </div>
     </Transition>
 
@@ -56,7 +56,7 @@
     </div>
 
     <div v-if="line && line.k !== 'choice'" class="hint">
-      <span class="kbd">Space</span> or tap to continue
+      <span class="kbd">{{ $t('scene.space') }}</span> {{ $t('scene.hint') }}
     </div>
   </div>
 </template>
@@ -137,7 +137,7 @@ function show() {
   if (!l) { emit('done'); return }
 
   if (l.k === 'chat') {
-    const m: Msg = { from: l.from, text: l.text, mine: isMine(l), meta: l.meta }
+    const m: Msg = { from: l.from, text: fill(l.text, name.value), mine: l.mine, meta: l.meta }
     thread.value = thread.value?.title === l.thread
       ? { title: l.thread, msgs: [...thread.value.msgs, m] }
       : { title: l.thread, msgs: [m] }
@@ -152,14 +152,6 @@ function show() {
   if (l.k === 'choice') { ruledOut.value = []; type(l.prompt) }
   else type(l.text)
   nextTick(paintFace)
-}
-
-// A thread is seen from the phone of whoever is not its title: Laras's own
-// threads show her messages on the right, yours show yours.
-function isMine(l: Extract<Line, { k: 'chat' }>) {
-  const lead = l.thread.split(' · ')[0]
-  if (lead === 'Laras') return l.thread.includes('draft') ? true : l.from === 'mc'
-  return l.from === 'laras'
 }
 
 function advance() {

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { scenarios } from '@/data'
 import { XP_RULES, levelFor, maxResolveFor } from '@/game/stride'
+import { tr } from '@/i18n'
 
 export type StrideCategory = 'S' | 'T' | 'R' | 'I' | 'D' | 'E'
 export type Severity = 'Critical' | 'High' | 'Medium' | 'Low'
@@ -56,15 +57,16 @@ export interface GameState {
   finaleDone: boolean
   unlocked: string[]
   storyClues: string[]
+  puzzlesDone: string[]
 }
 
 const PLAYER_COLORS = [
-  { id: 'red',    hex: '#C8442F', label: 'Brick' },
-  { id: 'blue',   hex: '#3567B4', label: 'Cobalt' },
-  { id: 'green',  hex: '#3D8A5C', label: 'Fern' },
-  { id: 'purple', hex: '#7552C2', label: 'Violet' },
-  { id: 'orange', hex: '#D98A1F', label: 'Ochre' },
-  { id: 'teal',   hex: '#2A8B8B', label: 'Teal' },
+  { id: 'red',    hex: '#C8442F', label: tr('Brick', 'Bata') },
+  { id: 'blue',   hex: '#3567B4', label: tr('Cobalt', 'Kobalt') },
+  { id: 'green',  hex: '#3D8A5C', label: tr('Fern', 'Pakis') },
+  { id: 'purple', hex: '#7552C2', label: tr('Violet', 'Ungu') },
+  { id: 'orange', hex: '#D98A1F', label: tr('Ochre', 'Oker') },
+  { id: 'teal',   hex: '#2A8B8B', label: tr('Teal', 'Toska') },
 ]
 
 export { PLAYER_COLORS }
@@ -112,6 +114,7 @@ export const useGameStore = defineStore('game', () => {
   const finaleDone   = ref(false)
   const unlocked     = ref<string[]>(['home'])   // places on the city map
   const storyClues   = ref<string[]>([])         // clues and conversations outside the office
+  const puzzlesDone  = ref<string[]>([])
 
   // ── Computed ──
 
@@ -318,6 +321,16 @@ export const useGameStore = defineStore('game', () => {
     return true
   }
 
+  /** Returns the XP awarded (0 if it was already solved). */
+  function solvePuzzle(id: string, attempts: number) {
+    if (puzzlesDone.value.includes(id)) return 0
+    const xp = XP_RULES.puzzle[Math.min(attempts, XP_RULES.puzzle.length) - 1]
+    puzzlesDone.value.push(id)
+    totalXP.value += xp
+    save()
+    return xp
+  }
+
   function finishFinale() {
     finaleDone.value = true
     save()
@@ -342,6 +355,7 @@ export const useGameStore = defineStore('game', () => {
     finaleDone.value   = false
     unlocked.value     = ['home']
     storyClues.value   = []
+    puzzlesDone.value  = []
     try { localStorage.removeItem('stride_game') } catch { /* noop */ }
   }
 
@@ -366,6 +380,7 @@ export const useGameStore = defineStore('game', () => {
         finaleDone: finaleDone.value,
         unlocked: unlocked.value,
         storyClues: storyClues.value,
+        puzzlesDone: puzzlesDone.value,
       }
       localStorage.setItem('stride_game', JSON.stringify(state))
     } catch { /* noop */ }
@@ -397,8 +412,11 @@ export const useGameStore = defineStore('game', () => {
       resolve.value       = Math.min(d.resolve ?? maxResolve.value, maxResolve.value)
       finaleDone.value    = d.finaleDone    ?? false
       // saves from before the city existed were already inside the office
-      unlocked.value      = d.unlocked      ?? (d.gameStarted ? ['home', 'kost', 'hq'] : ['home'])
+      unlocked.value      = d.unlocked      ?? (d.gameStarted ? ['home', 'kost', 'campus', 'hq'] : ['home'])
+      // the campus was added after the office could already be open
+      if (unlocked.value.includes('hq') && !unlocked.value.includes('campus')) unlocked.value.push('campus')
       storyClues.value    = d.storyClues    ?? []
+      puzzlesDone.value   = d.puzzlesDone   ?? []
     } catch { /* noop */ }
   }
 
@@ -407,7 +425,7 @@ export const useGameStore = defineStore('game', () => {
     totalXP, cases, completedModules, quizScores,
     briefingSeen, visitedRooms, lastPos,
     prologueSeen, scenesSeen, wardensDown, resolve, finaleDone, level, maxResolve,
-    unlocked, storyClues, unlock, findClue,
+    unlocked, storyClues, puzzlesDone, unlock, findClue, solvePuzzle,
     solvedCount, allSolved, phase2Progress, phase2Completed,
     evidenceTotal, evidenceCount,
     overallAccuracy, letterGrade, strideCoverage,

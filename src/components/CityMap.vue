@@ -3,10 +3,10 @@
     <section class="map anim-rise" role="dialog" aria-modal="true" aria-label="City map">
       <header class="head">
         <div>
-          <div class="t-label k">The city · {{ clock }}</div>
-          <h2 class="t-display title">Where to?</h2>
+          <div class="t-label k">{{ $t('city.kicker', { clock }) }}</div>
+          <h2 class="t-display title">{{ $t('city.title') }}</h2>
         </div>
-        <button class="close" title="Close (Esc)" @click="$emit('close')"><IconX :size="20" /></button>
+        <button class="close" :title="$t('city.close')" @click="$emit('close')"><IconX :size="20" /></button>
       </header>
 
       <div class="stage">
@@ -17,7 +17,7 @@
           <span class="dot"><IconMapPinFilled v-if="p.open" :size="18" /><IconLock v-else :size="15" /></span>
           <span class="label">
             <span class="name">{{ p.open ? p.name : '???' }}<span v-if="p.open" class="t-mono key">{{ i + 1 }}</span></span>
-            <span class="sub">{{ p.id === current ? 'You are here' : p.open ? p.blurb : 'You don\'t know where to look yet' }}</span>
+            <span class="sub">{{ p.id === current ? $t('city.here') : p.open ? p.blurb : $t('city.unknown') }}</span>
           </span>
         </button>
       </div>

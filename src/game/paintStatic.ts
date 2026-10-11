@@ -15,6 +15,7 @@ const WALL_PAINT: Record<string, string> = {
   ops: '#46505E', pantry: '#7A7264', lobby: '#857E73', archive: '#64625D', 'hall-s': '#5E636B',
   training: '#6B5C4F', lifts: '#7C776F', briefing: '#3C3D45',
   'home-laras': '#9C8FA8', 'home-mine': '#6F7F92', 'home-hall': '#A39780', 'home-living': '#A39780', 'home-kitchen': '#B7B09E',
+  'campus-office': '#8A8274', 'campus-affairs': '#7C8690', 'campus-hall': '#8E9296', 'campus-commons': '#9A9488',
   'kost-7': '#8FA394', 'kost-8': '#8FA394', 'kost-yard': '#7C8479', 'kost-warung': '#9A8468',
 }
 

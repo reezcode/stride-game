@@ -5,46 +5,44 @@
 
     <main class="layout">
       <section class="intro anim-rise">
-        <div class="t-label kicker">Eleven days later · 01:31</div>
+        <button class="lang" @click="setLocale(LOCALE === 'en' ? 'id' : 'en')"><IconLanguage :size="16" /> {{ $t('lang.switchTo') }}</button>
+        <div class="t-label kicker">{{ $t('lobby.kicker') }}</div>
         <h1 class="t-display wordmark">STRIDE</h1>
-        <div class="t-display subtitle">Six things they did to her</div>
+        <div class="t-display subtitle">{{ $t('lobby.subtitle') }}</div>
         <p class="pitch">
-          Your sister is gone, and nobody can tell you why. Her last message says she wrote everything down,
-          somewhere that is not home.
+          {{ $t('lobby.pitch1') }}
         </p>
         <p class="pitch pitch-2">
-          Follow the trail across the city, from her old room to her boarding house to the place where it started.
-          Gather what she left, break the guards that stand in the way, and name the person who did it.
+          {{ $t('lobby.pitch2') }}
         </p>
       </section>
 
       <section class="card paper anim-rise" style="animation-delay: .08s">
         <template v-if="hasSave && !startingOver">
-          <div class="t-label card-k">Night in progress</div>
+          <div class="t-label card-k">{{ $t('lobby.inProgress') }}</div>
           <div class="resume">
             <DetectiveAvatar :color="store.playerColor" :size="64" />
             <div>
               <div class="resume-name">{{ store.playerName }}</div>
               <div class="resume-meta">
-                Level {{ store.level }} · {{ store.solvedCount }}/5 cases sealed ·
-                {{ store.evidenceCount }}/{{ store.evidenceTotal }} clues
+                {{ $t('lobby.resumeMeta', { level: store.level, solved: store.solvedCount, clues: store.evidenceCount, total: store.evidenceTotal }) }}
               </div>
             </div>
           </div>
           <button class="btn btn-ink wide" @click="resume">
-            Continue <IconArrowRight :size="18" />
+            {{ $t('lobby.continue') }} <IconArrowRight :size="18" />
           </button>
-          <button class="btn btn-outline wide" @click="startingOver = true">Start over</button>
+          <button class="btn btn-outline wide" @click="startingOver = true">{{ $t('lobby.startOver') }}</button>
         </template>
 
         <template v-else>
-          <div class="t-label card-k">A story in three places</div>
-          <label class="lbl" for="codename">Your name</label>
+          <div class="t-label card-k">{{ $t('lobby.cardKicker') }}</div>
+          <label class="lbl" for="codename">{{ $t('lobby.yourName') }}</label>
           <input id="codename" ref="nameEl" v-model="name" class="field big-field" maxlength="24"
-            placeholder="e.g. Arya" autocomplete="off" @keydown.enter="begin" />
+            :placeholder="$t('lobby.namePlaceholder')" autocomplete="off" @keydown.enter="begin" />
 
-          <div class="lbl">Suit colour</div>
-          <div class="suits" role="radiogroup" aria-label="Suit colour">
+          <div class="lbl">{{ $t('lobby.suit') }}</div>
+          <div class="suits" role="radiogroup" :aria-label="$t('lobby.suit')">
             <button v-for="c in PLAYER_COLORS" :key="c.id" type="button" role="radio"
               :aria-checked="color === c.hex" :class="['suit', { on: color === c.hex }]"
               @click="color = c.hex">
@@ -53,16 +51,16 @@
             </button>
           </div>
 
-          <p v-if="hasSave" class="warn">Starting over erases {{ store.playerName }}'s progress.</p>
+          <p v-if="hasSave" class="warn">{{ $t('lobby.eraseWarn', { name: store.playerName }) }}</p>
           <button class="btn btn-ink wide" :disabled="!name.trim()" @click="begin">
-            Begin the story <IconArrowRight :size="18" />
+            {{ $t('lobby.begin') }} <IconArrowRight :size="18" />
           </button>
-          <button v-if="hasSave" class="btn btn-outline wide" @click="startingOver = false">Cancel</button>
+          <button v-if="hasSave" class="btn btn-outline wide" @click="startingOver = false">{{ $t('lobby.cancel') }}</button>
         </template>
       </section>
 
       <aside class="feed anim-rise" style="animation-delay: .16s" aria-label="Incident feed">
-        <div class="t-label feed-k"><span class="rec"></span> PayVault on-call · alerts you have not opened yet</div>
+        <div class="t-label feed-k"><span class="rec"></span> {{ $t('lobby.feed') }}</div>
         <ol>
           <li v-for="a in alerts" :key="a.code">
             <span class="t-mono a-time">{{ a.time }}</span>
@@ -80,7 +78,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { IconArrowRight } from '@tabler/icons-vue'
+import { IconArrowRight, IconLanguage } from '@tabler/icons-vue'
+import { t, setLocale, LOCALE } from '@/i18n'
+import { roomById } from '@/game/world'
 import { useGameStore, PLAYER_COLORS } from '@/stores/game'
 import { paintStatic } from '@/game/paintStatic'
 import { WORLD_W, WORLD_H } from '@/game/world'
@@ -97,11 +97,11 @@ const color = ref(PLAYER_COLORS[1].hex)
 const nameEl = ref<HTMLInputElement | null>(null)
 
 const alerts = [
-  { time: '02:09:41', code: 'SC-001', room: 'Data Center',     msg: 'One token reading transactions that belong to other users' },
-  { time: '02:10:12', code: 'SC-002', room: 'Identity Lab',    msg: '31,408 OTP verification attempts in four minutes' },
-  { time: '02:11:03', code: 'SC-003', room: 'Treasury',        msg: 'Transfer of −500,000 IDR accepted, sender balance went up' },
-  { time: '02:12:30', code: 'SC-004', room: 'Ops Control',     msg: 'Admin API answered a request carrying a user token' },
-  { time: '02:13:55', code: 'SC-005', room: 'Records Archive', msg: 'Sequential receipt PDFs downloaded with no session' },
+  { time: '01:19:41', code: 'SC-001', room: roomById.datacenter.name, msg: t('lobby.a1') },
+  { time: '01:20:12', code: 'SC-002', room: roomById.identity.name,   msg: t('lobby.a2') },
+  { time: '01:21:03', code: 'SC-003', room: roomById.treasury.name,   msg: t('lobby.a3') },
+  { time: '01:22:30', code: 'SC-004', room: roomById.ops.name,        msg: t('lobby.a4') },
+  { time: '01:23:55', code: 'SC-005', room: roomById.archive.name,    msg: t('lobby.a5') },
 ]
 
 function begin() {
@@ -187,6 +187,14 @@ onUnmounted(() => cancelAnimationFrame(raf))
 .feed  { grid-area: feed; align-self: start; }
 
 .kicker { color: #F0C674; }
+.lang {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 10px; margin-bottom: 14px;
+  border: 1px solid var(--color-ink-600); border-radius: 3px;
+  background: #0B0E13CC; color: var(--color-fog-dim);
+  font-size: 13px; cursor: pointer;
+}
+.lang:hover { color: var(--color-fog); background: var(--color-ink-800); }
 .wordmark {
   font-size: clamp(84px, 13vw, 168px);
   margin: 14px 0 0;

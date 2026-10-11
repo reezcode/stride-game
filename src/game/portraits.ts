@@ -22,6 +22,10 @@ const LOOKS: Partial<Record<CharId, Look>> = {
   laras: { skin: '#DDB08A', hair: '#231814', shirt: '#E2B33C', style: 'long', clip: '#E0506E' },
   ayu:   { skin: '#D0A07A', hair: '#2B1D16', shirt: '#6A7FB8', style: 'bun' },
   pakjo: { skin: '#B98458', hair: '#8C8780', shirt: '#E6E1D6', style: 'short' },
+  ibu:   { skin: '#D2A380', hair: '#5A534E', shirt: '#8C5A6E', style: 'bun' },
+  yati:  { skin: '#C6905F', hair: '#6A645E', shirt: '#5E8C78', style: 'short', glasses: true },
+  dewi:  { skin: '#D9A77E', hair: '#231814', shirt: '#3E4E78', style: 'long', glasses: true },
+  min:   { skin: '#B98458', hair: '#17130F', shirt: '#2F3A4A', style: 'part' },
 }
 
 function bust(g: Ctx, l: Look) {

@@ -6,39 +6,39 @@
       <header class="top">
         <canvas ref="foeEl" class="foe" width="240" height="240" aria-hidden="true"></canvas>
         <div class="foe-info">
-          <div class="t-label foe-k">{{ def.mode === 'warden' ? 'Warden' : 'Confrontation' }}</div>
+          <div class="t-label foe-k">{{ def.mode === 'warden' ? $t('enc.warden') : $t('enc.confrontation') }}</div>
           <h2 class="t-display foe-name">{{ def.name }}</h2>
           <div class="foe-tag">{{ def.tagline }}</div>
           <div class="locks" :aria-label="`${locksLeft} of ${def.locks} remaining`">
             <span v-for="i in def.locks" :key="i" :class="['lock', { open: i > locksLeft }]"></span>
-            <span class="locks-label">{{ def.mode === 'warden' ? 'locks' : 'denials' }} left: {{ locksLeft }}</span>
+            <span class="locks-label">{{ $t(def.mode === 'warden' ? 'enc.locks' : 'enc.denials', { n: locksLeft }) }}</span>
           </div>
         </div>
         <div class="me">
-          <div class="me-row"><IconHeartbeat :size="16" stroke-width="1.8" /> Resolve <span class="t-mono">{{ store.resolve }}/{{ store.maxResolve }}</span></div>
+          <div class="me-row"><IconHeartbeat :size="16" stroke-width="1.8" /> {{ $t('enc.resolve') }} <span class="t-mono">{{ store.resolve }}/{{ store.maxResolve }}</span></div>
           <div class="bar"><div class="bar-fill" :style="{ width: `${(store.resolve / store.maxResolve) * 100}%` }"></div></div>
         </div>
       </header>
 
       <div class="stage">
         <template v-if="phase === 'pick'">
-          <div class="t-label stage-k">{{ def.mode === 'warden' ? `${def.name} moves` : `${def.name} says` }}</div>
+          <div class="t-label stage-k">{{ $t(def.mode === 'warden' ? 'enc.moves' : 'enc.says', { name: def.name }) }}</div>
           <p :key="round.text" class="move anim-fade">{{ round.text }}</p>
           <p v-if="missText" class="miss">{{ missText }}</p>
         </template>
 
         <template v-else-if="phase === 'hit'">
-          <div class="t-label stage-k good">{{ def.mode === 'warden' ? `${pickedName} lands` : 'He has no answer' }}</div>
+          <div class="t-label stage-k good">{{ def.mode === 'warden' ? $t('enc.lands', { name: pickedName }) : $t('enc.noAnswer') }}</div>
           <p class="move anim-fade">{{ round.why }}</p>
         </template>
 
         <template v-else-if="phase === 'won'">
-          <div class="t-label stage-k good">{{ def.mode === 'warden' ? 'Warden down' : 'It is over' }}</div>
+          <div class="t-label stage-k good">{{ def.mode === 'warden' ? $t('enc.wardenDown') : $t('enc.over') }}</div>
           <p class="move anim-fade">{{ def.winText }}</p>
         </template>
 
         <template v-else>
-          <div class="t-label stage-k bad">{{ def.mode === 'warden' ? 'It got to you' : 'He talks his way past you' }}</div>
+          <div class="t-label stage-k bad">{{ def.mode === 'warden' ? $t('enc.gotYou') : $t('enc.talksPast') }}</div>
           <p class="move anim-fade">{{ def.loseText }}</p>
         </template>
       </div>
@@ -57,14 +57,14 @@
           </div>
           <div class="side">
             <button v-if="def.mode === 'warden'" class="btn btn-ghost btn-sm" :disabled="insight <= 0 || narrowed" @click="read"
-              title="Each clue you found in this room lets you read one move">
-              <IconEye :size="16" stroke-width="1.8" /> Read its move <span class="t-mono">×{{ insight }}</span>
+              :title="$t('enc.readTitle')">
+              <IconEye :size="16" stroke-width="1.8" /> {{ $t('enc.read') }} <span class="t-mono">×{{ insight }}</span>
             </button>
-            <button class="btn btn-ghost btn-sm" @click="$emit('end', 'flee')">Back off</button>
+            <button class="btn btn-ghost btn-sm" @click="$emit('end', 'flee')">{{ $t('enc.backOff') }}</button>
           </div>
         </template>
         <button v-else class="btn btn-light go" @click="next">
-          {{ phase === 'hit' ? 'Keep going' : phase === 'won' ? 'Continue' : 'Fall back' }} <IconArrowRight :size="16" />
+          {{ phase === 'hit' ? $t('enc.keepGoing') : phase === 'won' ? $t('enc.continue') : $t('enc.fallBack') }} <IconArrowRight :size="16" />
         </button>
       </footer>
     </section>
@@ -77,6 +77,7 @@ import { IconHeartbeat, IconEye, IconArrowRight } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { drawPortrait, drawWarden } from '@/game/portraits'
 import { sfx } from '@/game/audio'
+import { t } from '@/i18n'
 
 export interface EncounterDef {
   mode: 'warden' | 'proof'
@@ -138,7 +139,7 @@ function pick(id: string) {
   shaking.value = true
   window.setTimeout(() => { shaking.value = false }, 380)
   disabled.value.push(id)
-  missText.value = o.miss ?? 'He shrugs. That doesn\'t answer what he just said.'
+  missText.value = o.miss ?? t('enc.shrug')
   if (store.resolve <= 0) phase.value = 'lost'
 }
 

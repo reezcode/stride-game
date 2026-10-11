@@ -1,14 +1,14 @@
 <template>
   <div class="backdrop" @mousedown.self="$emit('close')">
-    <article class="sheet paper anim-rise" role="dialog" aria-modal="true" :aria-label="`Case file ${scenario.code}`">
+    <article class="sheet paper anim-rise" role="dialog" aria-modal="true" :aria-label="scenario.code">
       <header class="head">
         <div class="head-main">
-          <div class="t-label kicker">Case file · {{ scenario.code }} · {{ roomName }}</div>
+          <div class="t-label kicker">{{ $t('panel.kicker', { code: scenario.code, room: roomName }) }}</div>
           <h2 class="title t-display">{{ scenario.title }}</h2>
         </div>
         <span v-if="caseState?.solved" class="stamp head-stamp" :class="{ 'anim-stamp': justSealed }"
-          :style="{ color: caseState.score >= 50 ? '#2F7D57' : '#B8321F' }">Sealed</span>
-        <button class="close" title="Close (Esc)" @click="$emit('close')">
+          :style="{ color: caseState.score >= 50 ? '#2F7D57' : '#B8321F' }">{{ $t('panel.sealed') }}</span>
+        <button class="close" :title="$t('panel.close')" @click="$emit('close')">
           <IconX :size="20" stroke-width="2" />
         </button>
       </header>
@@ -25,12 +25,12 @@
         <!-- ───────── Evidence ───────── -->
         <div v-if="tab === 'evidence'" class="cols">
           <section>
-            <h3 class="h">Incident summary</h3>
+            <h3 class="h">{{ $t('panel.summary') }}</h3>
             <p class="lede">{{ scenario.context }}</p>
 
             <h3 class="h">
-              Clues from the room
-              <span class="h-meta t-mono">{{ found.length }}/{{ scenario.details.length }} recovered</span>
+              {{ $t('panel.roomClues') }}
+              <span class="h-meta t-mono">{{ $t('panel.recovered', { a: found.length, b: scenario.details.length }) }}</span>
             </h3>
             <ol class="evidence">
               <li v-for="(d, i) in scenario.details" :key="i" :class="{ missing: !found.includes(i) }">
@@ -41,55 +41,50 @@
                 </div>
                 <div v-else>
                   <div class="redacted" :style="{ width: `${60 + ((i * 37) % 35)}%` }"></div>
-                  <div class="ev-src">Not recovered. Search the {{ roomName }} for marked objects.</div>
+                  <div class="ev-src">{{ $t('panel.notFound', { room: roomName }) }}</div>
                 </div>
               </li>
             </ol>
             <p v-if="!caseState?.solved && found.length < scenario.details.length" class="note">
-              Each piece recovered before sealing is worth +{{ XP_RULES.evidence }} XP.
+              {{ $t('panel.each', { n: XP_RULES.evidence }) }}
             </p>
           </section>
 
           <section>
-            <h3 class="h">System evidence</h3>
+            <h3 class="h">{{ $t('panel.system') }}</h3>
             <div v-for="(info, i) in scenario.systemInfo" :key="i" class="sys">
               <div v-if="info.endpoint" class="sys-row">
-                <div class="sys-k">Endpoint</div>
+                <div class="sys-k">{{ $t('panel.endpoint') }}</div>
                 <code class="endpoint t-mono">{{ info.endpoint }}</code>
               </div>
               <div v-if="info.request" class="sys-row">
-                <div class="sys-k">Request</div>
+                <div class="sys-k">{{ $t('panel.request') }}</div>
                 <pre class="codeblock">{{ info.request }}</pre>
               </div>
               <div v-if="info.response" class="sys-row">
-                <div class="sys-k">Response</div>
+                <div class="sys-k">{{ $t('panel.response') }}</div>
                 <pre class="codeblock resp">{{ info.response }}</pre>
               </div>
               <p v-if="info.note" class="sys-note">{{ info.note }}</p>
             </div>
 
-            <h3 class="h">Analyst hints</h3>
+            <h3 class="h">{{ $t('panel.hints') }}</h3>
             <ol v-if="hintsShown.length" class="hints">
               <li v-for="h in hintsShown" :key="h">{{ h }}</li>
             </ol>
             <button v-if="!caseState?.solved && hintsShown.length < scenario.hints.length"
               class="btn btn-outline btn-sm" @click="takeHint">
               <IconBulb :size="16" stroke-width="1.8" />
-              Request a hint
+              {{ $t('panel.hint') }}
               <span class="cost t-mono">{{ XP_RULES.hint }} XP</span>
             </button>
-            <p v-else-if="!hintsShown.length" class="note">No hints used.</p>
+            <p v-else-if="!hintsShown.length" class="note">{{ $t('panel.noHints') }}</p>
           </section>
         </div>
 
         <!-- ───────── Report ───────── -->
         <div v-else-if="tab === 'report'" class="report">
-          <p class="lede">
-            Put on record what this system let someone do to her. Mark every kind of harm that applies, then say
-            in your own words what happened. Each one you get right earns <b>+{{ XP_RULES.correct }}</b>, judging how
-            serious it was adds <b>+{{ XP_RULES.severityMatch }}</b>, and an accusation that does not hold
-            costs <b>{{ XP_RULES.falsePositive }}</b>. A record with a wrong claim in it is easier to throw out.
-          </p>
+          <p class="lede">{{ $t('panel.lede', { c: XP_RULES.correct, s: XP_RULES.severityMatch, f: XP_RULES.falsePositive }) }}</p>
 
           <div class="picker">
             <button v-for="c in STRIDE" :key="c.letter" type="button"
@@ -115,26 +110,26 @@
         <!-- ───────── Findings ───────── -->
         <div v-else-if="tab === 'findings' && caseState" class="findings">
           <blockquote v-if="fragment" class="draft">
-            <div class="t-label draft-k">Laras · draft, never sent</div>
+            <div class="t-label draft-k">{{ $t('panel.draftK') }}</div>
             <p>{{ fragment.draft }}</p>
-            <footer><b>You can now prove:</b> {{ proof?.text }}</footer>
+            <footer><b>{{ $t('panel.canProve') }}</b> {{ proof?.text }}</footer>
           </blockquote>
           <div class="score-row">
             <div>
               <div class="big t-display" :style="{ color: scoreColor }">{{ caseState.score }}%</div>
-              <div class="muted">of what was done here, on record</div>
+              <div class="muted">{{ $t('panel.onRecord') }}</div>
             </div>
             <table class="xp-table t-mono">
               <tbody>
                 <tr v-for="row in xpRows" :key="row.label" :class="{ neg: row.value < 0, zero: row.value === 0 }">
                   <td>{{ row.label }}</td><td>{{ row.value > 0 ? '+' : '' }}{{ row.value }}</td>
                 </tr>
-                <tr class="total"><td>Case total</td><td>+{{ caseState.xpEarned }} XP</td></tr>
+                <tr class="total"><td>{{ $t('panel.xTotal') }}</td><td>+{{ caseState.xpEarned }} XP</td></tr>
               </tbody>
             </table>
           </div>
 
-          <h3 class="h">What this system allowed</h3>
+          <h3 class="h">{{ $t('panel.allowed') }}</h3>
           <div v-for="gt in scenario.groundTruth" :key="gt.category + gt.title"
             :class="['truth', caseState.correct.includes(gt.category) ? 'hit' : 'miss']"
             :style="{ '--cat': STRIDE_BY[gt.category].color }">
@@ -142,28 +137,28 @@
               <span class="pick-letter">{{ gt.category }}</span>
               <div class="truth-title">
                 <b>{{ gt.title }}</b>
-                <span class="muted">{{ STRIDE_BY[gt.category].name }} · {{ gt.severity }}</span>
+                <span class="muted">{{ STRIDE_BY[gt.category].name }} · {{ $t(`sev.${gt.severity}`) }}</span>
               </div>
               <span class="verdict">
-                <template v-if="caseState.correct.includes(gt.category)"><IconCheck :size="16" stroke-width="2.4" /> Found</template>
-                <template v-else><IconX :size="16" stroke-width="2.4" /> Missed</template>
+                <template v-if="caseState.correct.includes(gt.category)"><IconCheck :size="16" stroke-width="2.4" /> {{ $t('panel.found') }}</template>
+                <template v-else><IconX :size="16" stroke-width="2.4" /> {{ $t('panel.missed') }}</template>
               </span>
             </div>
             <p>{{ gt.explanation }}</p>
             <p v-if="filedFor(gt.category)" class="yours">
-              You wrote: “{{ filedFor(gt.category)!.title }}” · rated {{ filedFor(gt.category)!.severity }}
-              <span v-if="filedFor(gt.category)!.severity === gt.severity" class="ok">severity matches</span>
+              {{ $t('panel.wrote', { title: filedFor(gt.category)!.title, sev: $t(`sev.${filedFor(gt.category)!.severity}`) }) }}
+              <span v-if="filedFor(gt.category)!.severity === gt.severity" class="ok">{{ $t('panel.sevMatch') }}</span>
             </p>
           </div>
 
           <template v-if="caseState.falsePositives.length">
-            <h3 class="h">Did not apply</h3>
+            <h3 class="h">{{ $t('panel.notApply') }}</h3>
             <div v-for="cat in caseState.falsePositives" :key="cat" class="truth fp" :style="{ '--cat': STRIDE_BY[cat].color }">
               <div class="truth-top">
                 <span class="pick-letter">{{ cat }}</span>
                 <div class="truth-title">
                   <b>{{ filedFor(cat)?.title }}</b>
-                  <span class="muted">{{ STRIDE_BY[cat].name }} — not a threat in this scenario</span>
+                  <span class="muted">{{ $t('panel.notThreat', { name: STRIDE_BY[cat].name }) }}</span>
                 </div>
                 <span class="verdict">{{ XP_RULES.falsePositive }} XP</span>
               </div>
@@ -174,17 +169,17 @@
 
       <footer class="foot">
         <template v-if="caseState?.solved">
-          <span class="muted">This case is sealed. Nobody can wipe it now.</span>
-          <button class="btn btn-ink" @click="$emit('close')">Return to the floor</button>
+          <span class="muted">{{ $t('panel.footSealed') }}</span>
+          <button class="btn btn-ink" @click="$emit('close')">{{ $t('panel.return') }}</button>
         </template>
         <template v-else-if="tab === 'evidence'">
-          <span class="muted">{{ found.length < scenario.details.length ? 'You can seal it now, or keep searching the room.' : 'Every clue in the room recovered.' }}</span>
-          <button class="btn btn-ink" @click="tab = 'report'">Put it on record <IconArrowRight :size="16" /></button>
+          <span class="muted">{{ found.length < scenario.details.length ? $t('panel.footMore') : $t('panel.footAll') }}</span>
+          <button class="btn btn-ink" @click="tab = 'report'">{{ $t('panel.toRecord') }} <IconArrowRight :size="16" /></button>
         </template>
         <template v-else>
           <span class="muted">{{ submitHint }}</span>
           <button class="btn btn-alarm" :disabled="!canSubmit" @click="seal">
-            <IconGavel :size="17" stroke-width="1.8" /> Seal the case
+            <IconGavel :size="17" stroke-width="1.8" /> {{ $t('panel.seal') }}
           </button>
         </template>
       </footer>
@@ -201,6 +196,7 @@ import { interactables, rooms } from '@/game/world'
 import { STRIDE, STRIDE_BY, XP_RULES } from '@/game/stride'
 import { sfx } from '@/game/audio'
 import { fragments, proofById } from '@/data/story'
+import { t } from '@/i18n'
 import ConcernCard from './ConcernCard.vue'
 
 const props = defineProps<{ scenarioId: string }>()
@@ -223,16 +219,16 @@ watch(tab, () => bodyEl.value?.scrollTo({ top: 0 }))
 
 const tabs = computed(() => {
   const list: { id: Tab; label: string; badge?: string }[] = [
-    { id: 'evidence', label: 'Clues', badge: `${found.value.length}/${scenario.value.details.length}` },
+    { id: 'evidence', label: t('panel.tabClues'), badge: `${found.value.length}/${scenario.value.details.length}` },
   ]
-  if (caseState.value?.solved) list.push({ id: 'findings', label: 'Findings' })
-  else list.push({ id: 'report', label: 'Record', badge: selected.value.length ? String(selected.value.length) : undefined })
+  if (caseState.value?.solved) list.push({ id: 'findings', label: t('panel.tabFindings') })
+  else list.push({ id: 'report', label: t('panel.tabRecord'), badge: selected.value.length ? String(selected.value.length) : undefined })
   return list
 })
 
 function sourceOf(i: number) {
   const it = interactables.find(x => x.scenarioId === props.scenarioId && x.detail === i)
-  return it ? `Recovered from: ${it.label}` : ''
+  return it ? t('panel.from', { label: it.label }) : ''
 }
 
 function takeHint() {
@@ -261,9 +257,9 @@ const canSubmit = computed(() =>
   selected.value.every(cat => (concerns.value[cat]?.title ?? '').trim().length > 0),
 )
 const submitHint = computed(() => {
-  if (!selected.value.length) return 'Mark at least one kind of harm.'
+  if (!selected.value.length) return t('panel.needOne')
   const missing = selected.value.filter(c => !(concerns.value[c]?.title ?? '').trim()).length
-  return missing ? `${missing} finding${missing > 1 ? 's' : ''} still need a title.` : 'Ready to file.'
+  return missing ? t('panel.needTitles', { n: missing }) : t('panel.ready')
 })
 
 function seal() {
@@ -294,11 +290,11 @@ const xpRows = computed(() => {
   const b = caseState.value?.breakdown
   if (!b) return []
   return [
-    { label: 'Correct categories', value: b.correct },
-    { label: 'Severity matches',   value: b.severity },
-    { label: 'Evidence recovered', value: b.evidence },
-    { label: 'Hints used',         value: b.hints },
-    { label: 'Wrong categories',   value: b.falsePositives },
+    { label: t('panel.xCorrect'), value: b.correct },
+    { label: t('panel.xSev'), value: b.severity },
+    { label: t('panel.xEv'), value: b.evidence },
+    { label: t('panel.xHints'), value: b.hints },
+    { label: t('panel.xWrong'), value: b.falsePositives },
   ]
 })
 

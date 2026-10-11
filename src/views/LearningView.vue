@@ -1,26 +1,24 @@
 <template>
   <div class="page">
     <nav class="topbar">
-      <button class="back" @click="router.push('/game')"><IconArrowLeft :size="18" /> Back to the floor</button>
-      <span class="t-label top-k">Training Room · kiosk 1</span>
+      <button class="back" @click="router.push('/game')"><IconArrowLeft :size="18" /> {{ $t('learn.back') }}</button>
+      <span class="t-label top-k">{{ $t('learn.top') }}</span>
     </nav>
 
     <article class="manual paper anim-rise">
       <header>
-        <div class="t-label kicker">PayVault Security · Field manual · Rev. 3</div>
-        <h1 class="t-display title">Six questions to ask of any system.</h1>
+        <div class="t-label kicker">{{ $t('learn.kicker') }}</div>
+        <h1 class="t-display title">{{ $t('learn.title') }}</h1>
         <p class="intro">
-          STRIDE is a checklist for threat modeling. Each letter is a way a system can fail its users.
-          Work through the chapters in order. Each ends with a three-question check, and you need two
-          right to unlock the next one.
+          {{ $t('learn.intro') }}
         </p>
 
-        <div class="progress" :aria-label="`${store.completedModules.length} of 6 chapters passed`">
+        <div class="progress" :aria-label="$t('learn.passed', { n: store.completedModules.length })">
           <div class="bar">
             <span v-for="s in STRIDE" :key="s.letter" class="seg"
               :style="{ background: store.completedModules.includes(s.letter) ? s.color : undefined }"></span>
           </div>
-          <span class="t-mono prog-text">{{ store.completedModules.length }}/6 passed</span>
+          <span class="t-mono prog-text">{{ $t('learn.passed', { n: store.completedModules.length }) }}</span>
         </div>
       </header>
 
@@ -35,9 +33,9 @@
               <span class="ch-tag">{{ tagline(s.letter) }}</span>
             </span>
             <span class="ch-status">
-              <template v-if="isDone(s.letter)"><IconCircleCheck :size="18" /> Passed · {{ store.quizScores[s.letter] ?? 0 }}/3</template>
-              <template v-else-if="isLocked(idx)"><IconLock :size="16" /> Pass chapter {{ idx }} first</template>
-              <template v-else>Read chapter <IconArrowRight :size="16" /></template>
+              <template v-if="isDone(s.letter)"><IconCircleCheck :size="18" /> {{ $t('learn.chPassed', { n: store.quizScores[s.letter] ?? 0 }) }}</template>
+              <template v-else-if="isLocked(idx)"><IconLock :size="16" /> {{ $t('learn.chLocked', { n: idx }) }}</template>
+              <template v-else>{{ $t('learn.chRead') }} <IconArrowRight :size="16" /></template>
             </span>
           </button>
         </li>
@@ -45,10 +43,10 @@
 
       <footer v-if="store.phase2Completed" class="complete">
         <div>
-          <div class="done-title">Manual complete.</div>
-          <div class="done-sub">You have the full checklist. The terminals are waiting.</div>
+          <div class="done-title">{{ $t('learn.doneTitle') }}</div>
+          <div class="done-sub">{{ $t('learn.doneSub') }}</div>
         </div>
-        <button class="btn btn-ink" @click="router.push('/game')">Return to the floor</button>
+        <button class="btn btn-ink" @click="router.push('/game')">{{ $t('learn.return') }}</button>
       </footer>
     </article>
   </div>

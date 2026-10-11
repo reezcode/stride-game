@@ -28,7 +28,7 @@
     </aside>
 
     <!-- Minimap -->
-    <div v-if="!overlayOpen" class="minimap" title="Click to walk there">
+    <div v-if="!overlayOpen" class="minimap" :title="$t('map.miniTitle')">
       <canvas ref="miniEl" :style="{ aspectRatio: `${zone.w} / ${zone.h}` }" @pointerdown.stop="onMiniClick"></canvas>
     </div>
 
@@ -45,12 +45,12 @@
     <Transition name="note">
       <div v-if="note" :key="note.key" class="note paper" role="status">
         <div class="note-head">
-          <span class="t-label">Clue · {{ note.room }}</span>
+          <span class="t-label">{{ $t('map.noteKicker', { room: note.room }) }}</span>
           <span class="t-mono note-count">{{ note.count }}</span>
         </div>
         <div class="note-label">{{ note.label }}</div>
         <p class="note-text">{{ note.text }}</p>
-        <div class="note-xp t-mono">Lets you read one warden move · +{{ XP_RULES.evidence }} XP when sealed</div>
+        <div class="note-xp t-mono">{{ $t('map.noteFoot', { n: XP_RULES.evidence }) }}</div>
       </div>
     </Transition>
 
@@ -63,7 +63,7 @@
     <template v-if="isTouch && !overlayOpen">
       <VirtualJoystick @move="onJoy" @stop="onJoy(0, 0)" />
       <button class="action-btn" :class="{ ready: !!nearInfo }" :disabled="!nearInfo" @click="nearInfo && interact(nearInfo.id)">
-        {{ nearInfo ? nearInfo.verb : 'Use' }}
+        {{ nearInfo ? nearInfo.verb : $t('map.use') }}
       </button>
     </template>
 
@@ -79,55 +79,43 @@
     <!-- Laras's message -->
     <div v-if="briefingOpen" class="overlay" @mousedown.self="closeBriefing">
       <article class="memo paper anim-rise">
-        <div class="t-label memo-k">Laras · scheduled message · delivered 01:31</div>
+        <div class="t-label memo-k">{{ $t('map.memoKicker') }}</div>
         <template v-if="zoneId === 'hq'">
-          <h1 class="t-display memo-title">“It is someone inside.”</h1>
-          <p>
-            Someone at PayVault is wiping three weeks of logs tonight. Five rooms are dark, and in each one
-            a <b>warden</b>, a guard program they left running, is sitting on the terminal.
-          </p>
+          <h1 class="t-display memo-title">{{ $t('map.hqTitle') }}</h1>
+          <p>{{ $t('map.hqBody') }}</p>
           <ol class="memo-steps">
-            <li><b>Search the room.</b> Marked objects glint when you get close. Each is a clue the wipe has not reached yet. Wardens notice you sooner when you run.</li>
-            <li><b>Break the warden.</b> It attacks the way its maker attacked her. Answer each move with the right counter. Every clue you hold lets you read one move in advance.</li>
-            <li><b>Seal the case.</b> At the freed terminal, put on record every kind of harm that system allowed. A sealed case is a proof nobody can delete.</li>
+            <li v-for="n in 3" :key="n"><b>{{ $t(`map.hq${n}t`) }}</b> {{ $t(`map.hq${n}`) }}</li>
           </ol>
         </template>
         <template v-else>
-          <h1 class="t-display memo-title">“I wrote everything down.”</h1>
-          <p>
-            Not at home, she says, and her phone knows where. Her old room is down the hall.
-            Nobody could tell you why she did it. Tonight you start finding out.
-          </p>
+          <h1 class="t-display memo-title">{{ $t('map.homeTitle') }}</h1>
+          <p>{{ $t('map.homeBody') }}</p>
           <ol class="memo-steps">
-            <li><b>Look around.</b> Things worth examining glint when you get close.</li>
-            <li><b>Talk to people.</b> They remember more than they think they do.</li>
-            <li><b>Follow where it leads.</b> The front door opens the city map. New places appear as you learn about them.</li>
+            <li v-for="n in 4" :key="n"><b>{{ $t(`map.home${n}t`) }}</b> {{ $t(`map.home${n}`) }}</li>
           </ol>
         </template>
         <template v-if="gathered.length">
-          <div class="t-label memo-k proofs-k">What you can prove · {{ gathered.length }}/{{ proofs.length }}</div>
+          <div class="t-label memo-k proofs-k">{{ $t('map.proofsKicker', { a: gathered.length, b: proofs.length }) }}</div>
           <ul class="proofs">
             <li v-for="p in gathered" :key="p.id"><b>{{ p.title }}</b> {{ p.text }}</li>
           </ul>
         </template>
-        <p v-if="zoneId === 'hq'" class="memo-small">
-          The Briefing Room stays locked until all five cases are sealed. The manual Laras read is in the Training Room.
-          Coffee in the Pantry steadies your nerves. The lift takes you back to the street.
-        </p>
+        <p v-if="zoneId === 'hq'" class="memo-small">{{ $t('map.hqSmall') }}</p>
         <div class="controls">
-          <div><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> or click to walk</div>
-          <div><span class="kbd">Shift</span> run</div>
-          <div><span class="kbd">E</span> interact</div>
-          <div><span class="kbd">Tab</span> city map</div>
-          <div><span class="kbd">M</span> sound</div>
-          <div><span class="kbd">Esc</span> menu</div>
+          <div><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> {{ $t('map.cWalk') }}</div>
+          <div><span class="kbd">Shift</span> {{ $t('map.cRun') }}</div>
+          <div><span class="kbd">E</span> {{ $t('map.cInteract') }}</div>
+          <div><span class="kbd">Tab</span> {{ $t('map.cMap') }}</div>
+          <div><span class="kbd">M</span> {{ $t('map.cSound') }}</div>
+          <div><span class="kbd">Esc</span> {{ $t('map.cMenu') }}</div>
         </div>
         <button class="btn btn-ink memo-btn" @click="closeBriefing">
-          {{ store.briefingSeen ? 'Back to it' : 'Start looking' }}
+          {{ store.briefingSeen ? $t('map.memoBack') : $t('map.memoStart') }}
         </button>
       </article>
     </div>
 
+    <PuzzlePanel v-if="puzzle" :key="puzzle.id" :puzzle="puzzle" :place="zone.name" @close="puzzle = null" @solved="onPuzzleSolved" />
     <CityMap v-if="mapOpen" :current="zoneId" :unlocked="store.unlocked" :clock="CLOCK[zoneId]" @go="travel" @close="mapOpen = false" />
     <EncounterPanel v-if="encounter" :key="encounter.key" :def="encounter.def" @end="encounter.done" />
     <StoryScene v-if="scene" :key="scene.key" :lines="scene.lines" overlay @done="endScene" />
@@ -135,18 +123,19 @@
     <!-- Pause menu -->
     <div v-if="menuOpen" class="overlay" @mousedown.self="menuOpen = false">
       <div class="menu anim-rise">
-        <div class="t-label menu-k">Paused</div>
-        <button class="menu-item" @click="menuOpen = false"><IconPlayerPlay :size="18" /> Resume</button>
-        <button class="menu-item" @click="menuOpen = false; briefingOpen = true"><IconNotes :size="18" /> Laras's message</button>
-        <button class="menu-item" @click="menuOpen = false; mapOpen = true"><IconMap2 :size="18" /> City map</button>
-        <button class="menu-item" @click="goLearn"><IconBook2 :size="18" /> STRIDE field manual</button>
+        <div class="t-label menu-k">{{ $t('map.paused') }}</div>
+        <button class="menu-item" @click="menuOpen = false"><IconPlayerPlay :size="18" /> {{ $t('map.resume') }}</button>
+        <button class="menu-item" @click="menuOpen = false; briefingOpen = true"><IconNotes :size="18" /> {{ $t('map.message') }}</button>
+        <button class="menu-item" @click="menuOpen = false; mapOpen = true"><IconMap2 :size="18" /> {{ $t('map.cityMap') }}</button>
+        <button class="menu-item" @click="goLearn"><IconBook2 :size="18" /> {{ $t('map.manual') }}</button>
         <button class="menu-item" @click="toggleSound">
           <IconVolumeOff v-if="muted" :size="18" /><IconVolume v-else :size="18" />
-          Sound: {{ muted ? 'off' : 'on' }}
+          {{ muted ? $t('map.soundOff') : $t('map.soundOn') }}
         </button>
-        <button v-if="store.finaleDone" class="menu-item" @click="router.push('/debrief')"><IconReportAnalytics :size="18" /> Debrief</button>
-        <button class="menu-item dim" @click="router.push('/')"><IconLogout :size="18" /> Title screen</button>
-        <p class="menu-foot">Progress is saved automatically.</p>
+        <button v-if="store.finaleDone" class="menu-item" @click="router.push('/debrief')"><IconReportAnalytics :size="18" /> {{ $t('map.debrief') }}</button>
+        <button class="menu-item" @click="setLocale(LOCALE === 'en' ? 'id' : 'en')"><IconLanguage :size="18" /> {{ $t('lang.switchTo') }}</button>
+        <button class="menu-item dim" @click="router.push('/')"><IconLogout :size="18" /> {{ $t('map.title') }}</button>
+        <p class="menu-foot">{{ $t('map.saved') }}</p>
       </div>
     </div>
   </div>
@@ -157,7 +146,7 @@ import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   IconNavigationFilled, IconPlayerPlay, IconNotes, IconBook2, IconVolume, IconVolumeOff,
-  IconReportAnalytics, IconLogout, IconMap2,
+  IconReportAnalytics, IconLogout, IconMap2, IconLanguage,
 } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { scenarios } from '@/data'
@@ -173,7 +162,7 @@ import { XP_RULES, STRIDE_BY } from '@/game/stride'
 import { makeWardens, stepWarden, type Warden } from '@/game/wardens'
 import {
   COUNTERS, WARDEN_LOCKS, WARDEN_HIT, NEMESIS, proofs, proofById, fragments, denials,
-  finaleIntro, finaleEnd, clues, talks, arrivals, type Line,
+  finaleIntro, finaleEnd, clues, talks, arrivals, calls, puzzles, puzzleById, type Line, type Puzzle,
 } from '@/data/story'
 import GameHUD from '@/components/GameHUD.vue'
 import VirtualJoystick from '@/components/VirtualJoystick.vue'
@@ -181,6 +170,8 @@ import InvestigationPanel from '@/components/InvestigationPanel.vue'
 import EncounterPanel, { type EncounterDef } from '@/components/EncounterPanel.vue'
 import StoryScene from '@/components/StoryScene.vue'
 import CityMap from '@/components/CityMap.vue'
+import PuzzlePanel from '@/components/PuzzlePanel.vue'
+import { t, setLocale, LOCALE } from '@/i18n'
 
 const router = useRouter()
 const store  = useGameStore()
@@ -206,8 +197,9 @@ const scene     = shallowRef<{ key: number; lines: Line[]; then?: () => void } |
 const encounter = shallowRef<{ key: number; def: EncounterDef; done: (r: 'win' | 'lose' | 'flee') => void } | null>(null)
 
 const mapOpen   = ref(false)
+const puzzle    = shallowRef<Puzzle | null>(null)
 
-const overlayOpen = computed(() => panelOpen.value || !!scene.value || !!encounter.value || mapOpen.value)
+const overlayOpen = computed(() => panelOpen.value || !!scene.value || !!encounter.value || mapOpen.value || !!puzzle.value)
 const paused = computed(() => overlayOpen.value || menuOpen.value || briefingOpen.value)
 const gathered = computed(() => proofs.filter(p => store.getCase(p.id)?.solved))
 
@@ -222,8 +214,11 @@ let px = start.x, py = start.y
 // Which of the three places you are in. They share one world but are sealed apart.
 const zoneId = ref<ZoneId>(zoneAt(px, py).id)
 const zone = computed(() => zoneById[zoneId.value])
-const CLOCK: Record<ZoneId, string> = { home: '01:40', kost: '02:05', hq: '02:14' }
-const EXIT: Record<ZoneId, string> = { home: 'exit-home', kost: 'exit-kost', hq: 'lift' }
+const CLOCK: Record<ZoneId, string> = { home: '01:40', kost: '02:05', campus: '02:40', hq: '03:10' }
+const EXIT: Record<ZoneId, string> = { home: 'exit-home', kost: 'exit-kost', campus: 'exit-campus', hq: 'lift' }
+// the trail, in order, and the one thing in each place that opens the next
+const TRAIL: ZoneId[] = ['home', 'kost', 'campus', 'hq']
+const LEAD: Partial<Record<ZoneId, string>> = { home: 'h-phone', kost: 'k-notebook', campus: 'npc-dewi' }
 let vx = 0, vy = 0
 let facing: Facing = 'down'
 let phase = 0
@@ -265,6 +260,7 @@ const FIGURE = { x: 1398, y: 1010, shirt: '#4A4F5A', hair: '#1B1B1F', skin: '#CF
 let wardens: Warden[] = makeWardens(id => !store.wardensDown.includes(id) && !store.getCase(id)?.solved)
 const wardenOf = (scenarioId?: string) => wardens.find(w => w.def.id === scenarioId)
 let lastLevel = store.level
+let interactAfter = 0
 
 function playScene(lines: Line[], then?: () => void) {
   keys.clear(); path = null; pendingInteract = null
@@ -273,6 +269,8 @@ function playScene(lines: Line[], then?: () => void) {
 function endScene() {
   const then = scene.value?.then
   scene.value = null
+  // the key that closed the scene must not also interact with whatever is nearby
+  interactAfter = performance.now() + 450
   then?.()
 }
 
@@ -282,7 +280,7 @@ function levelNote() {
   lastLevel = store.level
   store.restoreResolve()
   window.setTimeout(() => sfx.levelUp(), 500)
-  return ` · Level ${store.level}, resolve restored`
+  return t('map.tLevel', { n: store.level })
 }
 
 function fightWarden(w: Warden) {
@@ -294,7 +292,7 @@ function fightWarden(w: Warden) {
     rounds: w.def.moves,
     options: COUNTERS.map(c => ({ id: c.id, name: c.name, line: c.line, color: STRIDE_BY[c.id].color, miss: c.miss })),
     winText: w.def.down,
-    loseText: 'Your hands are shaking too hard to type. You back out into the hall to breathe. It will still be there.',
+    loseText: t('map.encLose'),
   }
   encounter.value = {
     key: Date.now(), def,
@@ -306,7 +304,7 @@ function fightWarden(w: Warden) {
         for (let i = 0; i < 14; i++) {
           particles.push({ x: w.x + (Math.random() - 0.5) * 30, y: w.y - 14 + (Math.random() - 0.5) * 24, life: 0.9, max: 0.9 })
         }
-        showToast(`${w.def.name} is down · +${XP_RULES.warden} XP${levelNote()}`, 'good', 4200)
+        showToast(t('map.tWardenDown', { name: w.def.name, xp: XP_RULES.warden }) + levelNote(), 'good', 4200)
         return
       }
       w.state = 'patrol'; w.path = []
@@ -314,10 +312,10 @@ function fightWarden(w: Warden) {
         store.restoreResolve()
         px = w.def.retreat.x; py = w.def.retreat.y; vx = 0; vy = 0
         w.x = w.def.patrol[0].x; w.y = w.def.patrol[0].y; w.wp = 1; w.stun = 2
-        showToast('You catch your breath in the hall. More clues would let you read its moves.', 'warn', 5000)
+        showToast(t('map.tLose'), 'warn', 5000)
       } else {
         w.stun = 5
-        showToast(`${w.def.name} is resetting. You have a few seconds.`, 'plain')
+        showToast(t('map.tFlee', { name: w.def.name }), 'plain')
       }
     },
   }
@@ -345,9 +343,15 @@ function examine(id: string, lines: Line[], unlocks?: ZoneId) {
   if (fresh) sfx.pickup()
   playScene(lines, () => {
     const opened = unlocks && store.unlock(unlocks)
-    if (opened) showToast(`New place on the city map: ${zoneById[unlocks].name} · +${XP_RULES.clue} XP${levelNote()}`, 'good', 6000)
-    else if (fresh) showToast(`Noted · +${XP_RULES.clue} XP${levelNote()}`, 'good')
+    if (opened) showToast(t('map.tNewPlace', { place: zoneById[unlocks].name, xp: XP_RULES.clue }) + levelNote(), 'good', 6000)
+    else if (fresh) showToast(t('map.tNoted', { xp: XP_RULES.clue }) + levelNote(), 'good')
   })
+}
+
+function onPuzzleSolved(xp: number) {
+  puzzle.value = null
+  interactAfter = performance.now() + 450
+  showToast(t('map.tPuzzle', { xp }) + levelNote(), 'good', 4200)
 }
 
 function confront() {
@@ -359,8 +363,8 @@ function confront() {
         locks: denials.length, hit: NEMESIS.hit, insight: 0,
         rounds: denials,
         options: proofs.map(p => ({ id: p.id, name: p.title, line: p.text, color: '#F0C674' })),
-        winText: 'Five denials, five files. There is nothing left for him to stand on.',
-        loseText: 'He almost talks his way out, and for a second you doubt yourself. Steady. Read the files again.',
+        winText: t('map.finWin'),
+        loseText: t('map.finLose'),
       },
       done(result) {
         encounter.value = null
@@ -369,7 +373,7 @@ function confront() {
           return
         }
         store.restoreResolve()
-        showToast('He is not going anywhere. Step up to the podium when you are ready.', 'warn', 4500)
+        showToast(t('map.tFinaleRetry'), 'warn', 4500)
       },
     }
   }
@@ -388,21 +392,21 @@ function available(it: Interactable) {
 }
 
 const VERB: Record<Interactable['kind'], string> = {
-  terminal: 'Open case file', evidence: 'Examine', manual: 'Study', debrief: 'Read the debrief', board: 'Read', flavor: 'Check',
-  clue: 'Examine', npc: 'Talk to', travel: 'Leave by',
+  terminal: t('map.vTerminal'), evidence: t('map.vEvidence'), manual: t('map.vManual'), debrief: t('map.vDebrief'), board: t('map.vBoard'), flavor: t('map.vFlavor'),
+  clue: t('map.vClue'), npc: t('map.vNpc'), travel: t('map.vTravel'), puzzle: t('map.vPuzzle'),
 }
 const nearInfo = computed(() => {
   const it = interactables.find(i => i.id === nearId.value)
   if (!it) return null
   let verb = VERB[it.kind]
-  if (it.kind === 'terminal' && store.getCase(it.scenarioId!)?.solved) verb = 'Review findings'
-  if (it.kind === 'terminal' && wardenOf(it.scenarioId)) verb = 'Locked'
-  if (it.kind === 'debrief' && !store.finaleDone) verb = 'Step up'
+  if (it.kind === 'terminal' && store.getCase(it.scenarioId!)?.solved) verb = t('map.vReview')
+  if (it.kind === 'terminal' && wardenOf(it.scenarioId)) verb = t('map.vLocked')
+  if (it.kind === 'debrief' && !store.finaleDone) verb = t('map.vStepUp')
   let label = it.kind === 'terminal'
     ? `${scenarios.find(s => s.id === it.scenarioId)?.code} · ${scenarios.find(s => s.id === it.scenarioId)?.title}`
     : it.label
-  if (it.kind === 'debrief' && !store.finaleDone) label = 'The figure at the podium'
-  if (it.kind === 'board') label = 'Laras\'s message'
+  if (it.kind === 'debrief' && !store.finaleDone) label = t('map.figure')
+  if (it.kind === 'board') label = t('map.message')
   return { id: it.id, verb, label }
 })
 
@@ -425,7 +429,7 @@ function interact(id: string) {
       const w = wardenOf(it.scenarioId)
       if (w) {
         sfx.denied()
-        showToast(`${w.def.name} has this terminal locked. Break the warden first.`, 'warn')
+        showToast(t('map.tLocked', { name: w.def.name }), 'warn')
         return
       }
       store.visitCase(it.scenarioId!)
@@ -457,13 +461,14 @@ function interact(id: string) {
       break
     case 'board': briefingOpen.value = true; sfx.paper(); break
     case 'clue': examine(it.id, clues[it.id].lines, clues[it.id].unlocks); break
-    case 'npc': examine(it.id, talks[it.id]); break
+    case 'npc': examine(it.id, talks[it.id].lines, talks[it.id].unlocks); break
+    case 'puzzle': puzzle.value = puzzleById[it.id]; keys.clear(); path = null; break
     case 'travel': mapOpen.value = true; keys.clear(); sfx.open(); break
     case 'flavor':
       if (it.id === 'coffee' && store.resolve < store.maxResolve) {
         store.restoreResolve()
         sfx.heal()
-        showToast('Burnt espresso, black. Your hands stop shaking. Resolve restored.', 'good')
+        showToast(t('map.tCoffee'), 'good')
       } else { showToast(it.text ?? '', 'plain'); sfx.blip() }
       break
   }
@@ -491,15 +496,20 @@ function closePanel() {
     flicker[id] = time
     sfx.restore()
     const c = store.getCase(roomById[id].scenarioId!)
-    showToast(`${roomById[id].name} sealed · +${c?.xpEarned ?? 0} XP${levelNote()}`, 'good', 3600)
+    showToast(t('map.tSealed', { room: roomById[id].name, xp: c?.xpEarned ?? 0 }) + levelNote(), 'good', 3600)
     const all = store.allSolved
     if (all) { setLocks(true); flicker.briefing = time + 1.4 }
     // what she tried to say here, and what it lets you prove
     const sid = roomById[id].scenarioId!
     window.setTimeout(() => {
       playScene(
-        [...fragments[sid].lines, { k: 'proof', title: proofById[sid].title, text: proofById[sid].text }],
-        () => { if (all) showToast('All five sealed. The Briefing Room is open, and someone is in it.', 'good', 6000) },
+        [
+          ...fragments[sid].lines,
+          { k: 'proof', title: proofById[sid].title, text: proofById[sid].text },
+          // someone always notices you are in the building
+          ...(calls[store.solvedCount] && store.markScene(`call-${store.solvedCount}`) ? calls[store.solvedCount] : []),
+        ],
+        () => { if (all) showToast(t('map.tAllSealed'), 'good', 6000) },
       )
     }, 1500)
   }
@@ -544,7 +554,7 @@ function onKeyDown(e: KeyboardEvent) {
     if (k !== 'shift') { path = null; pendingInteract = null; target = null }
     e.preventDefault()
   }
-  if ((k === 'e' || k === 'enter' || k === ' ') && nearId.value) {
+  if ((k === 'e' || k === 'enter' || k === ' ') && nearId.value && performance.now() > interactAfter) {
     e.preventDefault()
     interact(nearId.value)
   }
@@ -693,7 +703,7 @@ function step(dt: number) {
     if (locked && dist < 52 && time - lockNoticeAt > 4) {
       lockNoticeAt = time
       sfx.denied()
-      showToast(`Briefing Room locked. ${scenarios.length - store.solvedCount} case${scenarios.length - store.solvedCount === 1 ? '' : 's'} still open.`, 'warn')
+      showToast(t('map.tBriefingLocked', { n: scenarios.length - store.solvedCount }), 'warn')
     }
   }
 
@@ -765,20 +775,20 @@ function snapCamera() {
 
 function showBanner(roomId: string) {
   const r = roomById[roomId]
-  let sub = zoneId.value === 'hq' ? 'Night lighting' : zone.value.name
+  let sub = zoneId.value === 'hq' ? t('map.bNight') : zone.value.name
   let tone = 'plain'
   if (r.scenarioId) {
     const st = caseStatus(r.scenarioId)
     const c = store.getCase(r.scenarioId)!
     const total = scenarios.find(s => s.id === r.scenarioId)!.details.length
     const w = wardenOf(r.scenarioId)
-    if (st === 'solved') { sub = 'Sealed'; tone = 'good' }
-    else { sub = `${w ? `${w.def.name} on guard` : 'Terminal free'} · clues ${c.evidenceFound.length}/${total}`; tone = 'bad' }
+    if (st === 'solved') { sub = t('map.bSealed'); tone = 'good' }
+    else { sub = `${w ? t('map.bGuard', { name: w.def.name }) : t('map.bFree')} · ${t('map.bClues', { a: c.evidenceFound.length, b: total })}`; tone = 'bad' }
   } else if (r.lockedUntilSolved) {
-    sub = store.finaleDone ? 'Debrief at the podium' : store.allSolved ? 'Someone is at the podium' : 'Locked'
-  } else if (r.id === 'training') sub = 'The manual Laras read is at the kiosk'
-  else if (r.id === 'pantry') sub = 'Coffee steadies your nerves'
-  else if (r.id === 'lobby') sub = 'Laras\'s message on the east wall'
+    sub = store.finaleDone ? t('map.bDebrief') : store.allSolved ? t('map.bSomeone') : t('map.bLocked')
+  } else if (r.id === 'training') sub = t('map.bTraining')
+  else if (r.id === 'pantry') sub = t('map.bPantry')
+  else if (r.id === 'lobby') sub = t('map.bLobby')
   banner.value = { title: r.name, sub, tone }
   clearTimeout(bannerTimer)
   bannerTimer = window.setTimeout(() => { banner.value = null }, 2600)
@@ -789,51 +799,58 @@ function updateObjective() {
   const o = objective.value
   let tx = px, ty = py
   // the trail: home, then her boarding house, then the office
-  const trail: ZoneId = store.unlocked.includes('hq') ? 'hq' : store.unlocked.includes('kost') ? 'kost' : 'home'
+  const trail = [...TRAIL].reverse().find(z => store.unlocked.includes(z)) ?? 'home'
   const point = (id: string) => { const it = interactables.find(i => i.id === id)!; tx = it.x; ty = it.y }
-  const noted = (place: string) => Object.keys(clues).filter(id => clues[id].place === place)
+  // everything there is to look into in a place, and how much of it you have
+  const tally = (place: string) => {
+    const ids = [
+      ...Object.keys(clues).filter(id => clues[id].place === place),
+      ...Object.keys(talks).filter(id => talks[id].place === place),
+    ]
+    const ps = puzzles.filter(p => p.place === place)
+    return {
+      a: ids.filter(id => store.storyClues.includes(id)).length + ps.filter(p => store.puzzlesDone.includes(p.id)).length,
+      b: ids.length + ps.length,
+    }
+  }
   if (zoneId.value !== trail) {
     point(EXIT[zoneId.value])
     o.kicker = zone.value.name
-    o.text = `Leave for ${zoneById[trail].name}`
-  } else if (trail === 'home') {
-    point('h-phone')
-    o.kicker = `Home · ${noted('home').filter(id => store.storyClues.includes(id)).length}/${noted('home').length} examined`
-    o.text = 'Her phone is in her old room, down the hall'
-  } else if (trail === 'kost') {
-    point('k-notebook')
-    o.kicker = `Kost Melati · ${noted('kost').filter(id => store.storyClues.includes(id)).length}/${noted('kost').length} examined`
-    o.text = 'Room 7: look under the desk drawer'
+    o.text = t('map.oLeave', { place: zoneById[trail].name })
+  } else if (trail !== 'hq') {
+    point(LEAD[trail]!)
+    o.kicker = t('map.oExamined', { place: zone.value.name, ...tally(trail) })
+    o.text = t(trail === 'home' ? 'map.oHome' : trail === 'kost' ? 'map.oKost' : 'map.oCampus')
   } else if (store.allSolved) {
     const it = interactables.find(i => i.id === 'debrief')!
     tx = it.x; ty = it.y
-    o.kicker = store.finaleDone ? 'It is over' : 'All five cases sealed'
-    o.text = store.finaleDone ? 'Read the debrief at the podium' : 'Someone is waiting in the Briefing Room'
+    o.kicker = store.finaleDone ? t('map.oOver') : t('map.oAllSealed')
+    o.text = store.finaleDone ? t('map.oReadDebrief') : t('map.oWaiting')
   } else if (here?.scenarioId && caseStatus(here.scenarioId) !== 'solved') {
     const sc = scenarios.find(s => s.id === here.scenarioId)!
     const c = store.getCase(sc.id)!
     const w = wardenOf(sc.id)
     const missing = interactables.filter(i => i.scenarioId === sc.id && i.kind === 'evidence' && !c.evidenceFound.includes(i.detail!))
-    o.kicker = `${here.name} · clues ${c.evidenceFound.length}/${sc.details.length}`
+    o.kicker = t('map.oRoomClues', { room: here.name, a: c.evidenceFound.length, b: sc.details.length })
     if (missing.length) {
       const m = missing.reduce((a, b) => Math.hypot(a.x - px, a.y - py) < Math.hypot(b.x - px, b.y - py) ? a : b)
       tx = m.x; ty = m.y
-      o.text = w ? `Gather clues out of ${w.def.name}'s sight, or face it now` : 'Search for marked objects, then seal the case at the terminal'
+      o.text = w ? t('map.oGather', { name: w.def.name }) : t('map.oSearch')
     } else if (w) {
       tx = w.x; ty = w.y
-      o.text = `Break ${w.def.name} to free the terminal`
+      o.text = t('map.oBreak', { name: w.def.name })
     } else {
       const term = interactables.find(i => i.id === `term-${sc.id}`)!
       tx = term.x; ty = term.y
-      o.text = 'Put on record what was done here'
+      o.text = t('map.oRecord')
     }
   } else {
     const open = interactables.filter(i => i.kind === 'terminal' && caseStatus(i.scenarioId!) !== 'solved')
-    const t = open.reduce((a, b) => Math.hypot(a.x - px, a.y - py) < Math.hypot(b.x - px, b.y - py) ? a : b)
-    tx = t.x; ty = t.y
-    const room = rooms.find(r => r.scenarioId === t.scenarioId)!
-    o.kicker = `${store.solvedCount}/${scenarios.length} cases sealed`
-    o.text = `Nearest dark room: ${room.name}`
+    const near = open.reduce((a, b) => Math.hypot(a.x - px, a.y - py) < Math.hypot(b.x - px, b.y - py) ? a : b)
+    tx = near.x; ty = near.y
+    const room = rooms.find(r => r.scenarioId === near.scenarioId)!
+    o.kicker = t('map.oCases', { a: store.solvedCount, b: scenarios.length })
+    o.text = t('map.oNearest', { room: room.name })
   }
   o.angle = Math.atan2(ty - py, tx - px) + Math.PI / 4
 }
@@ -902,6 +919,7 @@ function loop(now: number) {
     for (const it of interactables) {
       if (it.kind === 'evidence' && store.getCase(it.scenarioId!)?.evidenceFound.includes(it.detail!)) found.add(it.id)
       if ((it.kind === 'clue' || it.kind === 'npc') && store.storyClues.includes(it.id)) found.add(it.id)
+      if (it.kind === 'puzzle' && store.puzzlesDone.includes(it.id)) found.add(it.id)
     }
     renderer.draw({
       time, camX, camY,
