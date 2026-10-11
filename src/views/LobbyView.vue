@@ -5,16 +5,16 @@
 
     <main class="layout">
       <section class="intro anim-rise">
-        <div class="t-label kicker">PayVault HQ · 14th floor · 02:14</div>
+        <div class="t-label kicker">Eleven days later · 01:31</div>
         <h1 class="t-display wordmark">STRIDE</h1>
         <div class="t-display subtitle">Six things they did to her</div>
         <p class="pitch">
-          Your sister is gone, and nobody can tell you why. Her last message says it started inside the
-          company you work for. Tonight someone is on the 14th floor erasing the proof, and they have left
-          guards behind.
+          Your sister is gone, and nobody can tell you why. Her last message says she wrote everything down,
+          somewhere that is not home.
         </p>
         <p class="pitch pitch-2">
-          Walk the dark floor, find what the wipe has not reached, break the wardens, and name the person who did it.
+          Follow the trail across the city, from her old room to her boarding house to the place where it started.
+          Gather what she left, break the guards that stand in the way, and name the person who did it.
         </p>
       </section>
 
@@ -38,7 +38,7 @@
         </template>
 
         <template v-else>
-          <div class="t-label card-k">Badge in · night access</div>
+          <div class="t-label card-k">A story in three places</div>
           <label class="lbl" for="codename">Your name</label>
           <input id="codename" ref="nameEl" v-model="name" class="field big-field" maxlength="24"
             placeholder="e.g. Arya" autocomplete="off" @keydown.enter="begin" />
@@ -62,7 +62,7 @@
       </section>
 
       <aside class="feed anim-rise" style="animation-delay: .16s" aria-label="Incident feed">
-        <div class="t-label feed-k"><span class="rec"></span> Intrusion alerts · tonight</div>
+        <div class="t-label feed-k"><span class="rec"></span> PayVault on-call · alerts you have not opened yet</div>
         <ol>
           <li v-for="a in alerts" :key="a.code">
             <span class="t-mono a-time">{{ a.time }}</span>

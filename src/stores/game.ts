@@ -54,6 +54,8 @@ export interface GameState {
   wardensDown: string[]
   resolve: number
   finaleDone: boolean
+  unlocked: string[]
+  storyClues: string[]
 }
 
 const PLAYER_COLORS = [
@@ -108,6 +110,8 @@ export const useGameStore = defineStore('game', () => {
   const wardensDown  = ref<string[]>([])
   const resolve      = ref(maxResolveFor(1))
   const finaleDone   = ref(false)
+  const unlocked     = ref<string[]>(['home'])   // places on the city map
+  const storyClues   = ref<string[]>([])         // clues and conversations outside the office
 
   // ── Computed ──
 
@@ -297,6 +301,23 @@ export const useGameStore = defineStore('game', () => {
     save()
   }
 
+  /** Returns true if the place is new. */
+  function unlock(place: string) {
+    if (unlocked.value.includes(place)) return false
+    unlocked.value.push(place)
+    save()
+    return true
+  }
+
+  /** Returns true the first time a clue is examined. */
+  function findClue(id: string) {
+    if (storyClues.value.includes(id)) return false
+    storyClues.value.push(id)
+    totalXP.value += XP_RULES.clue
+    save()
+    return true
+  }
+
   function finishFinale() {
     finaleDone.value = true
     save()
@@ -319,6 +340,8 @@ export const useGameStore = defineStore('game', () => {
     wardensDown.value  = []
     resolve.value      = maxResolveFor(1)
     finaleDone.value   = false
+    unlocked.value     = ['home']
+    storyClues.value   = []
     try { localStorage.removeItem('stride_game') } catch { /* noop */ }
   }
 
@@ -341,6 +364,8 @@ export const useGameStore = defineStore('game', () => {
         wardensDown: wardensDown.value,
         resolve: resolve.value,
         finaleDone: finaleDone.value,
+        unlocked: unlocked.value,
+        storyClues: storyClues.value,
       }
       localStorage.setItem('stride_game', JSON.stringify(state))
     } catch { /* noop */ }
@@ -371,6 +396,9 @@ export const useGameStore = defineStore('game', () => {
       wardensDown.value   = d.wardensDown   ?? []
       resolve.value       = Math.min(d.resolve ?? maxResolve.value, maxResolve.value)
       finaleDone.value    = d.finaleDone    ?? false
+      // saves from before the city existed were already inside the office
+      unlocked.value      = d.unlocked      ?? (d.gameStarted ? ['home', 'kost', 'hq'] : ['home'])
+      storyClues.value    = d.storyClues    ?? []
     } catch { /* noop */ }
   }
 
@@ -379,6 +407,7 @@ export const useGameStore = defineStore('game', () => {
     totalXP, cases, completedModules, quizScores,
     briefingSeen, visitedRooms, lastPos,
     prologueSeen, scenesSeen, wardensDown, resolve, finaleDone, level, maxResolve,
+    unlocked, storyClues, unlock, findClue,
     solvedCount, allSolved, phase2Progress, phase2Completed,
     evidenceTotal, evidenceCount,
     overallAccuracy, letterGrade, strideCoverage,

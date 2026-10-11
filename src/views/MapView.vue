@@ -6,7 +6,7 @@
       @contextmenu.prevent></canvas>
     <div class="vignette" aria-hidden="true"></div>
 
-    <GameHUD :muted="muted" @manual="goLearn" @menu="menuOpen = true" @toggle-sound="toggleSound" />
+    <GameHUD :muted="muted" :place="zone.name" :show-cases="zoneId === 'hq'" @manual="goLearn" @menu="menuOpen = true" @toggle-sound="toggleSound" />
 
     <!-- Room title -->
     <Transition name="banner">
@@ -29,7 +29,7 @@
 
     <!-- Minimap -->
     <div v-if="!overlayOpen" class="minimap" title="Click to walk there">
-      <canvas ref="miniEl" @pointerdown.stop="onMiniClick"></canvas>
+      <canvas ref="miniEl" :style="{ aspectRatio: `${zone.w} / ${zone.h}` }" @pointerdown.stop="onMiniClick"></canvas>
     </div>
 
     <!-- Interaction prompt -->
@@ -80,41 +80,57 @@
     <div v-if="briefingOpen" class="overlay" @mousedown.self="closeBriefing">
       <article class="memo paper anim-rise">
         <div class="t-label memo-k">Laras · scheduled message · delivered 01:31</div>
-        <h1 class="t-display memo-title">“It started in PayVault.”</h1>
-        <p>
-          Someone on the inside is wiping three weeks of logs tonight. Five rooms are dark, and in each one
-          a <b>warden</b>, a guard program they left running, is sitting on the terminal.
-        </p>
-        <ol class="memo-steps">
-          <li><b>Search the room.</b> Marked objects glint when you get close. Each is a clue the wipe has not reached yet. Wardens notice you sooner when you run.</li>
-          <li><b>Break the warden.</b> It attacks the way its maker attacked her. Answer each move with the right counter. Every clue you hold lets you read one move in advance.</li>
-          <li><b>Seal the case.</b> At the freed terminal, put on record every kind of harm that system allowed. A sealed case is a proof nobody can delete.</li>
-        </ol>
+        <template v-if="zoneId === 'hq'">
+          <h1 class="t-display memo-title">“It is someone inside.”</h1>
+          <p>
+            Someone at PayVault is wiping three weeks of logs tonight. Five rooms are dark, and in each one
+            a <b>warden</b>, a guard program they left running, is sitting on the terminal.
+          </p>
+          <ol class="memo-steps">
+            <li><b>Search the room.</b> Marked objects glint when you get close. Each is a clue the wipe has not reached yet. Wardens notice you sooner when you run.</li>
+            <li><b>Break the warden.</b> It attacks the way its maker attacked her. Answer each move with the right counter. Every clue you hold lets you read one move in advance.</li>
+            <li><b>Seal the case.</b> At the freed terminal, put on record every kind of harm that system allowed. A sealed case is a proof nobody can delete.</li>
+          </ol>
+        </template>
+        <template v-else>
+          <h1 class="t-display memo-title">“I wrote everything down.”</h1>
+          <p>
+            Not at home, she says, and her phone knows where. Her old room is down the hall.
+            Nobody could tell you why she did it. Tonight you start finding out.
+          </p>
+          <ol class="memo-steps">
+            <li><b>Look around.</b> Things worth examining glint when you get close.</li>
+            <li><b>Talk to people.</b> They remember more than they think they do.</li>
+            <li><b>Follow where it leads.</b> The front door opens the city map. New places appear as you learn about them.</li>
+          </ol>
+        </template>
         <template v-if="gathered.length">
           <div class="t-label memo-k proofs-k">What you can prove · {{ gathered.length }}/{{ proofs.length }}</div>
           <ul class="proofs">
             <li v-for="p in gathered" :key="p.id"><b>{{ p.title }}</b> {{ p.text }}</li>
           </ul>
         </template>
-        <p class="memo-small">
+        <p v-if="zoneId === 'hq'" class="memo-small">
           The Briefing Room stays locked until all five cases are sealed. The manual Laras read is in the Training Room.
-          Coffee in the Pantry steadies your nerves.
+          Coffee in the Pantry steadies your nerves. The lift takes you back to the street.
         </p>
         <div class="controls">
           <div><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> or click to walk</div>
           <div><span class="kbd">Shift</span> run</div>
           <div><span class="kbd">E</span> interact</div>
+          <div><span class="kbd">Tab</span> city map</div>
           <div><span class="kbd">M</span> sound</div>
           <div><span class="kbd">Esc</span> menu</div>
         </div>
         <button class="btn btn-ink memo-btn" @click="closeBriefing">
-          {{ store.briefingSeen ? 'Back to it' : 'Find out what happened' }}
+          {{ store.briefingSeen ? 'Back to it' : 'Start looking' }}
         </button>
       </article>
     </div>
 
+    <CityMap v-if="mapOpen" :current="zoneId" :unlocked="store.unlocked" :clock="CLOCK[zoneId]" @go="travel" @close="mapOpen = false" />
     <EncounterPanel v-if="encounter" :key="encounter.key" :def="encounter.def" @end="encounter.done" />
-    <StoryScene v-if="scene" :key="scene.key" :lines="scene.lines" @done="endScene" />
+    <StoryScene v-if="scene" :key="scene.key" :lines="scene.lines" overlay @done="endScene" />
 
     <!-- Pause menu -->
     <div v-if="menuOpen" class="overlay" @mousedown.self="menuOpen = false">
@@ -122,6 +138,7 @@
         <div class="t-label menu-k">Paused</div>
         <button class="menu-item" @click="menuOpen = false"><IconPlayerPlay :size="18" /> Resume</button>
         <button class="menu-item" @click="menuOpen = false; briefingOpen = true"><IconNotes :size="18" /> Laras's message</button>
+        <button class="menu-item" @click="menuOpen = false; mapOpen = true"><IconMap2 :size="18" /> City map</button>
         <button class="menu-item" @click="goLearn"><IconBook2 :size="18" /> STRIDE field manual</button>
         <button class="menu-item" @click="toggleSound">
           <IconVolumeOff v-if="muted" :size="18" /><IconVolume v-else :size="18" />
@@ -140,13 +157,13 @@ import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   IconNavigationFilled, IconPlayerPlay, IconNotes, IconBook2, IconVolume, IconVolumeOff,
-  IconReportAnalytics, IconLogout,
+  IconReportAnalytics, IconLogout, IconMap2,
 } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { scenarios } from '@/data'
 import {
-  WORLD_W, WORLD_H, TILE, rooms, roomById, doors, interactables, roomAt, SPAWN,
-  type Interactable,
+  TILE, rooms, roomById, doors, interactables, roomAt, SPAWN, npcs, zoneAt, zoneById,
+  type Interactable, type ZoneId,
 } from '@/game/world'
 import { move, blocked, findPath, setLocks } from '@/game/physics'
 import { Renderer, STATUS_COLOR, type CaseStatus } from '@/game/renderer'
@@ -156,13 +173,14 @@ import { XP_RULES, STRIDE_BY } from '@/game/stride'
 import { makeWardens, stepWarden, type Warden } from '@/game/wardens'
 import {
   COUNTERS, WARDEN_LOCKS, WARDEN_HIT, NEMESIS, proofs, proofById, fragments, denials,
-  finaleIntro, finaleEnd, type Line,
+  finaleIntro, finaleEnd, clues, talks, arrivals, type Line,
 } from '@/data/story'
 import GameHUD from '@/components/GameHUD.vue'
 import VirtualJoystick from '@/components/VirtualJoystick.vue'
 import InvestigationPanel from '@/components/InvestigationPanel.vue'
 import EncounterPanel, { type EncounterDef } from '@/components/EncounterPanel.vue'
 import StoryScene from '@/components/StoryScene.vue'
+import CityMap from '@/components/CityMap.vue'
 
 const router = useRouter()
 const store  = useGameStore()
@@ -187,7 +205,9 @@ const objective = ref({ kicker: '', text: '', angle: 0 })
 const scene     = shallowRef<{ key: number; lines: Line[]; then?: () => void } | null>(null)
 const encounter = shallowRef<{ key: number; def: EncounterDef; done: (r: 'win' | 'lose' | 'flee') => void } | null>(null)
 
-const overlayOpen = computed(() => panelOpen.value || !!scene.value || !!encounter.value)
+const mapOpen   = ref(false)
+
+const overlayOpen = computed(() => panelOpen.value || !!scene.value || !!encounter.value || mapOpen.value)
 const paused = computed(() => overlayOpen.value || menuOpen.value || briefingOpen.value)
 const gathered = computed(() => proofs.filter(p => store.getCase(p.id)?.solved))
 
@@ -198,6 +218,12 @@ const start = (() => {
   return SPAWN
 })()
 let px = start.x, py = start.y
+
+// Which of the three places you are in. They share one world but are sealed apart.
+const zoneId = ref<ZoneId>(zoneAt(px, py).id)
+const zone = computed(() => zoneById[zoneId.value])
+const CLOCK: Record<ZoneId, string> = { home: '01:40', kost: '02:05', hq: '02:14' }
+const EXIT: Record<ZoneId, string> = { home: 'exit-home', kost: 'exit-kost', hq: 'lift' }
 let vx = 0, vy = 0
 let facing: Facing = 'down'
 let phase = 0
@@ -235,7 +261,7 @@ setLocks(store.allSolved)
 
 // ── Story: scenes, wardens, the confrontation ──
 
-const FIGURE = { x: 1398, y: 1010 }   // beside the podium, watching the wall screen
+const FIGURE = { x: 1398, y: 1010, shirt: '#4A4F5A', hair: '#1B1B1F', skin: '#CFA07A', back: true }   // beside the podium, watching the wall screen
 let wardens: Warden[] = makeWardens(id => !store.wardensDown.includes(id) && !store.getCase(id)?.solved)
 const wardenOf = (scenarioId?: string) => wardens.find(w => w.def.id === scenarioId)
 let lastLevel = store.level
@@ -297,6 +323,33 @@ function fightWarden(w: Warden) {
   }
 }
 
+/** Ride somewhere else. The first arrival at a place plays its scene. */
+function travel(to: ZoneId) {
+  mapOpen.value = false
+  if (to === zoneId.value) return
+  const z = zoneById[to]
+  px = z.arrive.x; py = z.arrive.y; vx = 0; vy = 0
+  path = null; pendingInteract = null; target = null; keys.clear()
+  zoneId.value = to
+  currentRoom = null
+  snapCamera()
+  store.setLastPos(px, py)
+  sfx.door()
+  const lines = arrivals[to]
+  if (lines && store.markScene(`arrive-${to}`)) playScene(lines, () => { if (to === 'hq') briefingOpen.value = true })
+}
+
+/** A clue or a conversation outside the office. */
+function examine(id: string, lines: Line[], unlocks?: ZoneId) {
+  const fresh = store.findClue(id)
+  if (fresh) sfx.pickup()
+  playScene(lines, () => {
+    const opened = unlocks && store.unlock(unlocks)
+    if (opened) showToast(`New place on the city map: ${zoneById[unlocks].name} · +${XP_RULES.clue} XP${levelNote()}`, 'good', 6000)
+    else if (fresh) showToast(`Noted · +${XP_RULES.clue} XP${levelNote()}`, 'good')
+  })
+}
+
 function confront() {
   const fight = () => {
     encounter.value = {
@@ -336,6 +389,7 @@ function available(it: Interactable) {
 
 const VERB: Record<Interactable['kind'], string> = {
   terminal: 'Open case file', evidence: 'Examine', manual: 'Study', debrief: 'Read the debrief', board: 'Read', flavor: 'Check',
+  clue: 'Examine', npc: 'Talk to', travel: 'Leave by',
 }
 const nearInfo = computed(() => {
   const it = interactables.find(i => i.id === nearId.value)
@@ -402,6 +456,9 @@ function interact(id: string) {
       else confront()
       break
     case 'board': briefingOpen.value = true; sfx.paper(); break
+    case 'clue': examine(it.id, clues[it.id].lines, clues[it.id].unlocks); break
+    case 'npc': examine(it.id, talks[it.id]); break
+    case 'travel': mapOpen.value = true; keys.clear(); sfx.open(); break
     case 'flavor':
       if (it.id === 'coffee' && store.resolve < store.maxResolve) {
         store.restoreResolve()
@@ -480,6 +537,7 @@ function onKeyDown(e: KeyboardEvent) {
     return
   }
   if (k === 'm') { toggleSound(); return }
+  if (k === 'tab' && !paused.value) { e.preventDefault(); mapOpen.value = true; keys.clear(); return }
   if (paused.value) return
   if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) {
     keys.add(k)
@@ -524,7 +582,8 @@ function onPointerMove(e: PointerEvent) {
 function onMiniClick(e: PointerEvent) {
   const el = miniEl.value!
   const r = el.getBoundingClientRect()
-  walkTo(((e.clientX - r.left) / r.width) * WORLD_W, ((e.clientY - r.top) / r.height) * WORLD_H, null)
+  const z = zone.value
+  walkTo(z.x + ((e.clientX - r.left) / r.width) * z.w, z.y + ((e.clientY - r.top) / r.height) * z.h, null)
 }
 
 function onJoy(x: number, y: number) {
@@ -681,9 +740,7 @@ function step(dt: number) {
 
   // camera
   if (renderer) {
-    const vw = renderer.viewW, vh = renderer.viewH
-    const tx = vw >= WORLD_W ? (WORLD_W - vw) / 2 : Math.max(0, Math.min(WORLD_W - vw, px - vw / 2))
-    const ty = vh >= WORLD_H ? (WORLD_H - vh) / 2 : Math.max(-56, Math.min(WORLD_H - vh + 40, py - 20 - vh / 2))
+    const { tx, ty } = camTarget()
     const ck = 1 - Math.exp(-dt * 7)
     camX += (tx - camX) * ck
     camY += (ty - camY) * ck
@@ -692,9 +749,23 @@ function step(dt: number) {
   return moving
 }
 
+/** Where the camera wants to be: on the player, but never showing past the edge of this place. */
+function camTarget() {
+  const vw = renderer!.viewW, vh = renderer!.viewH, z = zone.value
+  return {
+    tx: vw >= z.w ? z.x + (z.w - vw) / 2 : Math.max(z.x, Math.min(z.x + z.w - vw, px - vw / 2)),
+    ty: vh >= z.h + 96 ? z.y + (z.h - vh) / 2 : Math.max(z.y - 56, Math.min(z.y + z.h - vh + 40, py - 20 - vh / 2)),
+  }
+}
+function snapCamera() {
+  if (!renderer) return
+  const c = camTarget()
+  camX = c.tx; camY = c.ty
+}
+
 function showBanner(roomId: string) {
   const r = roomById[roomId]
-  let sub = 'Night lighting'
+  let sub = zoneId.value === 'hq' ? 'Night lighting' : zone.value.name
   let tone = 'plain'
   if (r.scenarioId) {
     const st = caseStatus(r.scenarioId)
@@ -717,7 +788,23 @@ function updateObjective() {
   const here = currentRoom ? roomById[currentRoom] : null
   const o = objective.value
   let tx = px, ty = py
-  if (store.allSolved) {
+  // the trail: home, then her boarding house, then the office
+  const trail: ZoneId = store.unlocked.includes('hq') ? 'hq' : store.unlocked.includes('kost') ? 'kost' : 'home'
+  const point = (id: string) => { const it = interactables.find(i => i.id === id)!; tx = it.x; ty = it.y }
+  const noted = (place: string) => Object.keys(clues).filter(id => clues[id].place === place)
+  if (zoneId.value !== trail) {
+    point(EXIT[zoneId.value])
+    o.kicker = zone.value.name
+    o.text = `Leave for ${zoneById[trail].name}`
+  } else if (trail === 'home') {
+    point('h-phone')
+    o.kicker = `Home · ${noted('home').filter(id => store.storyClues.includes(id)).length}/${noted('home').length} examined`
+    o.text = 'Her phone is in her old room, down the hall'
+  } else if (trail === 'kost') {
+    point('k-notebook')
+    o.kicker = `Kost Melati · ${noted('kost').filter(id => store.storyClues.includes(id)).length}/${noted('kost').length} examined`
+    o.text = 'Room 7: look under the desk drawer'
+  } else if (store.allSolved) {
     const it = interactables.find(i => i.id === 'debrief')!
     tx = it.x; ty = it.y
     o.kicker = store.finaleDone ? 'It is over' : 'All five cases sealed'
@@ -759,10 +846,12 @@ function drawMini() {
   const W = c.clientWidth, H = c.clientHeight
   if (c.width !== Math.round(W * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr) }
   const g = c.getContext('2d')!
-  const k = (W / WORLD_W) * dpr
+  const z = zone.value
+  const k = (W / z.w) * dpr
+  const u = z.w / 1600   // marker sizes were tuned for the office floor
   g.setTransform(1, 0, 0, 1, 0, 0)
   g.clearRect(0, 0, c.width, c.height)
-  g.setTransform(k, 0, 0, k, 0, 0)
+  g.setTransform(k, 0, 0, k, -z.x * k, -z.y * k)
   for (const r of rooms) {
     const seen = store.visitedRooms.includes(r.id)
     const x = r.x * TILE, y = r.y * TILE, w = r.w * TILE, h = r.h * TILE
@@ -789,10 +878,13 @@ function drawMini() {
     g.fillStyle = w.def.color
     g.beginPath(); g.arc(w.x, w.y, w.state === 'chase' ? 30 : 22, 0, Math.PI * 2); g.fill()
   }
+  const exit = interactables.find(i => i.id === EXIT[zoneId.value])!
+  g.fillStyle = '#F0C674'
+  g.fillRect(exit.x - 22 * u, exit.y - 22 * u, 44 * u, 44 * u)
   g.fillStyle = '#F2EDE2'
-  g.beginPath(); g.arc(px, py, 34, 0, Math.PI * 2); g.fill()
+  g.beginPath(); g.arc(px, py, 34 * u, 0, Math.PI * 2); g.fill()
   g.fillStyle = store.playerColor
-  g.beginPath(); g.arc(px, py, 22, 0, Math.PI * 2); g.fill()
+  g.beginPath(); g.arc(px, py, 22 * u, 0, Math.PI * 2); g.fill()
 }
 
 function loop(now: number) {
@@ -809,6 +901,7 @@ function loop(now: number) {
     const found = new Set<string>()
     for (const it of interactables) {
       if (it.kind === 'evidence' && store.getCase(it.scenarioId!)?.evidenceFound.includes(it.detail!)) found.add(it.id)
+      if ((it.kind === 'clue' || it.kind === 'npc') && store.storyClues.includes(it.id)) found.add(it.id)
     }
     renderer.draw({
       time, camX, camY,
@@ -826,7 +919,8 @@ function loop(now: number) {
         x: w.x, y: w.y, color: w.def.color, name: w.def.name,
         alert: w.state === 'chase', stunned: w.stun > 0, near: currentRoom === w.room.id,
       })),
-      npc: store.allSolved && !store.finaleDone ? { ...FIGURE, color: '#4A4F5A' } : null,
+      npcs: store.allSolved && !store.finaleDone ? [...npcs, FIGURE] : npcs,
+      zone: zone.value,
     })
   }
   raf = requestAnimationFrame(loop)
@@ -847,8 +941,7 @@ onMounted(() => {
   renderer = new Renderer(canvasEl.value!)
   resize()
   // snap the camera onto the player on first frame
-  camX = Math.max(0, Math.min(WORLD_W - renderer.viewW, px - renderer.viewW / 2))
-  camY = Math.max(-56, Math.min(WORLD_H - renderer.viewH + 40, py - 20 - renderer.viewH / 2))
+  snapCamera()
   const startRoom = roomAt(px, py)
   currentRoom = startRoom?.id ?? null
   if (startRoom) store.visitRoom(startRoom.id)
@@ -949,7 +1042,7 @@ onUnmounted(() => {
   border-radius: 4px;
   z-index: 20;
 }
-.minimap canvas { display: block; width: 100%; aspect-ratio: 1600 / 1216; cursor: pointer; }
+.minimap canvas { display: block; width: 100%; cursor: pointer; }
 
 /* Prompt */
 .prompt {

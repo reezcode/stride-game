@@ -36,6 +36,7 @@ export const XP_RULES = {
   falsePositive: -50,
   completion: 500,
   warden: 150,
+  clue: 30,
 }
 
 export function rankFor(xp: number) {

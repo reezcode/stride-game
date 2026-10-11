@@ -1,10 +1,12 @@
-// PayVault HQ, 14th floor — the playable floor plan.
+// The playable world: PayVault HQ's 14th floor, the family home and Kost
+// Melati. The three places share one tile grid but are sealed off from each
+// other; you move between them through the city map (see `zones`).
 //
 // Rooms and doors are carved out of a solid tile grid, so every tile that is
 // not part of a room/door is wall. Props are placed in world pixels.
 
 export const TILE = 32
-export const COLS = 50
+export const COLS = 78
 export const ROWS = 38
 export const WORLD_W = COLS * TILE
 export const WORLD_H = ROWS * TILE
@@ -38,7 +40,42 @@ export const rooms: Room[] = [
   { id: 'training',   name: 'Training Room',   x: 1,  y: 30, w: 16, h: 7,  floor: 'carpetWarm', dim: true },
   { id: 'lifts',      name: 'Lift Lobby',      x: 18, y: 30, w: 11, h: 7,  floor: 'stone',    dim: true },
   { id: 'briefing',   name: 'Briefing Room',   x: 30, y: 30, w: 19, h: 7,  floor: 'carpetDark', lockedUntilSolved: true },
+
+  // Home
+  { id: 'home-laras',   name: 'Laras\'s Room', x: 53, y: 1,  w: 11, h: 5, floor: 'carpetWarm', dim: true },
+  { id: 'home-mine',    name: 'Your Room',     x: 65, y: 1,  w: 11, h: 5, floor: 'carpet',     dim: true },
+  { id: 'home-hall',    name: 'Hallway',       x: 53, y: 7,  w: 23, h: 2, floor: 'wood',       dim: true },
+  { id: 'home-living',  name: 'Living Room',   x: 53, y: 10, w: 14, h: 7, floor: 'wood',       dim: true },
+  { id: 'home-kitchen', name: 'Kitchen',       x: 68, y: 10, w: 8,  h: 7, floor: 'checker',    dim: true },
+
+  // Kost Melati
+  { id: 'kost-7',      name: 'Room 7 · Laras',   x: 53, y: 21, w: 10, h: 6, floor: 'lab',      dim: true },
+  { id: 'kost-8',      name: 'Room 8 · Ayu',     x: 64, y: 21, w: 12, h: 6, floor: 'lab',      dim: true },
+  { id: 'kost-yard',   name: 'Courtyard',        x: 53, y: 28, w: 23, h: 3, floor: 'concrete', dim: true },
+  { id: 'kost-warung', name: 'Pak Jo\'s Warung', x: 53, y: 32, w: 23, h: 5, floor: 'stone',    dim: true },
 ]
+
+// ─── Zones ───────────────────────────────────────────────────────────────
+
+export type ZoneId = 'home' | 'kost' | 'hq'
+
+export interface Zone {
+  id: ZoneId
+  name: string
+  x: number; y: number; w: number; h: number     // world px
+  arrive: { x: number; y: number }               // where you appear when you travel here
+}
+
+export const zones: Zone[] = [
+  { id: 'home', name: 'Home',        x: t(52), y: 0,     w: t(25), h: t(18), arrive: { x: 1920, y: 492 } },
+  { id: 'kost', name: 'Kost Melati', x: t(52), y: t(20), w: t(25), h: t(18), arrive: { x: 2340, y: 946 } },
+  { id: 'hq',   name: 'PayVault HQ', x: 0,     y: 0,     w: t(50), h: t(38), arrive: { x: 640,  y: 1010 } },
+]
+export const zoneById = Object.fromEntries(zones.map(z => [z.id, z])) as Record<ZoneId, Zone>
+
+export function zoneAt(px: number, py: number): Zone {
+  return zones.find(z => px >= z.x && px < z.x + z.w && py >= z.y && py < z.y + z.h) ?? zoneById.hq
+}
 
 export const roomById: Record<string, Room> = Object.fromEntries(rooms.map(r => [r.id, r]))
 
@@ -64,6 +101,16 @@ export const doors: Door[] = [
   { id: 'd-training',  x: 8,  y: 29, w: 2, h: 1, style: 'slide' },
   { id: 'd-lifts',     x: 22, y: 29, w: 3, h: 1, style: 'open' },
   { id: 'd-briefing',  x: 38, y: 29, w: 3, h: 1, style: 'slide', lock: 'allSolved' },
+
+  { id: 'h-laras',     x: 57, y: 6,  w: 2, h: 1, style: 'slide' },
+  { id: 'h-mine',      x: 69, y: 6,  w: 2, h: 1, style: 'slide' },
+  { id: 'h-living',    x: 58, y: 9,  w: 4, h: 1, style: 'open' },
+  { id: 'h-kitchen',   x: 71, y: 9,  w: 2, h: 1, style: 'open' },
+  { id: 'h-pass',      x: 67, y: 12, w: 1, h: 2, style: 'open' },
+
+  { id: 'k-7',         x: 57, y: 27, w: 2, h: 1, style: 'slide' },
+  { id: 'k-8',         x: 69, y: 27, w: 2, h: 1, style: 'slide' },
+  { id: 'k-warung',    x: 62, y: 31, w: 5, h: 1, style: 'open' },
 ]
 
 // Door name plates, painted on the corridor side of the wall next to a door.
@@ -78,6 +125,10 @@ export const signs: { text: string; x: number; y: number; align?: CanvasTextAlig
   { text: 'TRAINING',      x: t(10.2), y: t(29) + 7, align: 'left' },
   { text: 'LIFTS',         x: t(25.2), y: t(29) + 7, align: 'left' },
   { text: 'BRIEFING',      x: t(41.2), y: t(29) + 7, align: 'left' },
+  { text: 'LARAS',         x: t(59.2), y: t(6) + 7,  align: 'left' },
+  { text: 'ROOM 7',        x: t(59.2), y: t(27) + 7, align: 'left' },
+  { text: 'ROOM 8',        x: t(71.2), y: t(27) + 7, align: 'left' },
+  { text: 'WARUNG PAK JO · MIE AYAM', x: t(67.2), y: t(31) + 7, align: 'left' },
 ]
 
 // ─── Grid ────────────────────────────────────────────────────────────────
@@ -122,6 +173,7 @@ export type PropKind =
   | 'reception' | 'logo' | 'rug' | 'coffeeTable' | 'corkboard' | 'shelf'
   | 'boxes' | 'bookshelf' | 'kiosk' | 'elevator' | 'bench' | 'screenWall'
   | 'podium' | 'trophyCase' | 'longTable' | 'bin' | 'wetSign' | 'hazard'
+  | 'bed' | 'wardrobe' | 'tv' | 'bike' | 'stall' | 'mat' | 'spot'
 
 export interface Prop {
   kind: PropKind
@@ -134,7 +186,7 @@ export interface Prop {
   room?: string
 }
 
-const NON_SOLID = new Set<PropKind>(['cableTray', 'gateFlap', 'logo', 'rug', 'hazard', 'whiteboard', 'whiteboardV', 'videoWall', 'screenWall', 'corkboard', 'elevator'])
+const NON_SOLID = new Set<PropKind>(['cableTray', 'gateFlap', 'logo', 'rug', 'hazard', 'whiteboard', 'whiteboardV', 'videoWall', 'screenWall', 'corkboard', 'elevator', 'mat'])
 
 const P: Prop[] = []
 let seed = 1
@@ -296,12 +348,80 @@ add('longTable', 1000, 1080, 170, 40)
 for (const x of [1030, 1085, 1140]) chair(x, 1138, 'n')
 plant(1550, 1166, 18)
 
+// Home ───────────────────────────────────────────────────────────────────
+add('bed', 1704, 44, 70, 112, { seed: 601 })
+add('sideTable', 1780, 44, 34, 24)
+add('desk', 1840, 44, 72, 30, { face: 's', n: 1, seed: 602 })
+chair(1876, 90, 'n')
+add('wardrobe', 1956, 40, 80, 28)
+add('rug', 1800, 118, 130, 56)
+plant(2030, 176, 18)
+
+add('desk', 2096, 44, 104, 30, { face: 's', n: 2, seed: 610 })
+chair(2148, 90, 'n')
+add('wardrobe', 2226, 40, 80, 28)
+add('bed', 2352, 44, 70, 112, { seed: 611 })
+
+add('sideTable', 2000, 228, 40, 22)
+plant(1712, 240, 18)
+plant(2416, 272, 18)
+
+add('tv', 1756, 330, 96, 20)
+add('rug', 1724, 376, 160, 86)
+add('coffeeTable', 1776, 398, 56, 38)
+add('sofa', 1744, 474, 120, 34, { face: 'n' })
+add('roundTable', 2040, 386, 48, 48)
+chair(2064, 370, 's'); chair(2064, 450, 'n'); chair(2024, 410, 'e')
+add('cabinet', 2104, 326, 28, 26)
+add('mat', 1890, 524, 60, 18)
+plant(1712, 528, 20)
+plant(2124, 528, 18)
+
+add('fridge', 2184, 326, 34, 44)
+add('counter', 2394, 328, 34, 206)
+add('sideTable', 2260, 480, 60, 30)
+add('bin', 2190, 520, 16, 16)
+
+// Kost Melati ────────────────────────────────────────────────────────────
+add('bed', 1704, 684, 70, 112, { seed: 620 })
+add('boxes', 1786, 684, 34, 28)
+add('boxes', 1790, 820, 34, 28)
+add('desk', 1856, 684, 72, 30, { face: 's', n: 1, seed: 621 })
+chair(1892, 730, 'n')
+add('wardrobe', 1936, 680, 72, 28)
+add('bin', 1990, 838, 16, 16)
+
+add('desk', 2060, 684, 72, 30, { face: 's', n: 1, seed: 630 })
+chair(2096, 730, 'n')
+add('wardrobe', 2150, 680, 72, 28)
+add('bed', 2352, 684, 70, 112, { seed: 631 })
+add('rug', 2170, 760, 130, 70)
+add('spot', 2228, 776, 22, 16)
+plant(2064, 846, 18)
+
+add('bench', 1990, 900, 72, 20)
+add('bike', 2384, 918, 26, 56)
+add('bike', 2350, 922, 26, 56, { seed: 3 })
+plant(1712, 912, 20)
+plant(2130, 906, 18)
+add('bin', 1900, 904, 16, 16)
+
+add('stall', 1716, 1034, 130, 46)
+add('spot', 1768, 1094, 22, 16)
+add('cooler', 1860, 1040, 22, 22)
+for (const [i, x] of [1960, 2110, 2260].entries()) {
+  add('roundTable', x, 1090, 48, 48, { seed: 640 + i })
+  chair(x + 24, 1074, 's'); chair(x + 24, 1154, 'n'); chair(x + 66, 1114, 'w'); chair(x - 18, 1114, 'e')
+}
+add('bin', 2400, 1040, 16, 16)
+plant(2412, 1164, 18)
+
 for (const p of P) p.room = roomAt(p.x + p.w / 2, p.y + p.h / 2)?.id
 export const props: Prop[] = P
 
 // ─── Interactables ───────────────────────────────────────────────────────
 
-export type InteractKind = 'terminal' | 'evidence' | 'manual' | 'debrief' | 'board' | 'flavor'
+export type InteractKind = 'terminal' | 'evidence' | 'manual' | 'debrief' | 'board' | 'flavor' | 'clue' | 'npc' | 'travel'
 
 export interface Interactable {
   id: string
@@ -365,10 +485,35 @@ export const interactables: Interactable[] = [
   { id: 'board',   kind: 'board',   x: 1106, y: 630, range: 50, label: 'Case board' },
   { id: 'coffee',  kind: 'flavor',  x: 499, y: 600, label: 'Coffee machine', text: 'Burnt espresso, 02:14. It will have to do.' },
   { id: 'vending', kind: 'flavor',  x: 682, y: 554, label: 'Vending machine', text: 'Card payments only. Ironic, given the night you are having.' },
-  { id: 'lift',    kind: 'flavor',  x: 640, y: 974, label: 'Lift call panel', text: 'Lifts are locked down until the incident is closed.' },
+  { id: 'lift',    kind: 'travel',  x: 640, y: 974, range: 52, label: 'Lift to the street' },
+
+  // Home (story for each id lives in data/story.ts)
+  { id: 'h-laptop',    kind: 'clue', x: 2148, y: 62,  range: 58, label: 'Your work laptop' },
+  { id: 'h-photo',     kind: 'clue', x: 2020, y: 240, label: 'Photo on the hall table' },
+  { id: 'h-phone',     kind: 'clue', x: 1876, y: 62,  range: 58, label: 'Laras\'s phone' },
+  { id: 'h-statement', kind: 'clue', x: 1797, y: 58,  label: 'Printed wallet statement' },
+  { id: 'h-letter',    kind: 'clue', x: 1804, y: 417, label: 'Letter from the campus' },
+  { id: 'h-fridge',    kind: 'clue', x: 2201, y: 364, range: 52, label: 'Note on the fridge' },
+  { id: 'exit-home',   kind: 'travel', x: 1920, y: 530, range: 50, label: 'Front door' },
+
+  // Kost Melati
+  { id: 'k-notebook',  kind: 'clue', x: 1892, y: 702, range: 58, label: 'Under the desk drawer' },
+  { id: 'k-codes',     kind: 'clue', x: 1803, y: 700, label: 'Sticky notes in a packed box' },
+  { id: 'k-tickets',   kind: 'clue', x: 1972, y: 700, range: 52, label: 'Printouts in the wardrobe' },
+  { id: 'npc-ayu',     kind: 'npc',  x: 2239, y: 784, range: 56, label: 'Ayu' },
+  { id: 'npc-pakjo',   kind: 'npc',  x: 1779, y: 1102, range: 60, label: 'Pak Jo' },
+  { id: 'exit-kost',   kind: 'travel', x: 2397, y: 946, range: 52, label: 'Your motorbike' },
 ]
 
-export const SPAWN = { x: 928, y: 712 }
+/** People standing around the world. Painted by the renderer, not the static layer. */
+export interface Npc { id: string; x: number; y: number; shirt: string; hair: string; skin: string; long?: boolean }
+
+export const npcs: Npc[] = [
+  { id: 'npc-ayu',   x: 2239, y: 792,  shirt: '#6A7FB8', hair: '#2B1D16', skin: '#D0A07A', long: true },
+  { id: 'npc-pakjo', x: 1779, y: 1110, shirt: '#E6E1D6', hair: '#8C8780', skin: '#B98458' },
+]
+
+export const SPAWN = { x: 2256, y: 130 }   // your room, at home
 
 // ─── Lights ──────────────────────────────────────────────────────────────
 

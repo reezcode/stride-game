@@ -14,6 +14,8 @@ const WALL_PAINT: Record<string, string> = {
   datacenter: '#50565E', identity: '#8C9296', treasury: '#4C3B2F', 'hall-n': '#5E636B',
   ops: '#46505E', pantry: '#7A7264', lobby: '#857E73', archive: '#64625D', 'hall-s': '#5E636B',
   training: '#6B5C4F', lifts: '#7C776F', briefing: '#3C3D45',
+  'home-laras': '#9C8FA8', 'home-mine': '#6F7F92', 'home-hall': '#A39780', 'home-living': '#A39780', 'home-kitchen': '#B7B09E',
+  'kost-7': '#8FA394', 'kost-8': '#8FA394', 'kost-yard': '#7C8479', 'kost-warung': '#9A8468',
 }
 
 export function paintStatic(scale: number): HTMLCanvasElement {
@@ -828,6 +830,57 @@ function paintProp(g: Ctx, p: Prop) {
       withShadow(g, 10, 5, 0.5, () => { g.fillStyle = '#2F2620'; rr(g, x, y, w, h, 3); g.fill() })
       g.fillStyle = '#463830'; rr(g, x + 2, y + 2, w - 4, h - 4, 2); g.fill()
       for (let k = 0; k < 3; k++) paper(g, x + 20 + k * 55, y + 10, 18, 22, R() * 0.3 - 0.15, '#D8C7A0')
+      break
+    }
+    case 'bed': {
+      const quilt = ['#7E6FA6', '#4F6C8C', '#8C6F5C', '#5E8C78'][(p.seed ?? 0) % 4]
+      withShadow(g, 10, 5, 0.5, () => { g.fillStyle = '#5B4636'; rr(g, x, y, w, h, 4); g.fill() })
+      g.fillStyle = '#E9E4D8'; rr(g, x + 3, y + 5, w - 6, h - 8, 4); g.fill()
+      g.fillStyle = '#F7F4EC'; rr(g, x + 10, y + 9, w - 20, 22, 6); g.fill()
+      g.fillStyle = quilt; rr(g, x + 3, y + 38, w - 6, h - 41, 4); g.fill()
+      g.fillStyle = shade(quilt, 0.16); g.fillRect(x + 3, y + 38, w - 6, 7)
+      g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 1
+      for (let k = y + 56; k < y + h - 8; k += 14) { g.beginPath(); g.moveTo(x + 6, k); g.lineTo(x + w - 6, k); g.stroke() }
+      break
+    }
+    case 'wardrobe': {
+      withShadow(g, 8, 4, 0.5, () => { g.fillStyle = '#6A5140'; rr(g, x, y, w, h, 2); g.fill() })
+      g.fillStyle = '#80634E'; g.fillRect(x + 2, y + 2, w / 2 - 3, h - 6); g.fillRect(x + w / 2 + 1, y + 2, w / 2 - 3, h - 6)
+      g.fillStyle = '#D8C7A2'; g.fillRect(x + w / 2 - 5, y + h - 9, 3, 4); g.fillRect(x + w / 2 + 2, y + h - 9, 3, 4)
+      break
+    }
+    case 'tv': {
+      withShadow(g, 8, 4, 0.5, () => { g.fillStyle = '#4A3A2E'; rr(g, x, y + 6, w, h - 6, 2); g.fill() })
+      g.fillStyle = '#15171B'; rr(g, x + 12, y, w - 24, 9, 2); g.fill()
+      g.fillStyle = '#2B3A52'; g.fillRect(x + 14, y + 2, w - 28, 5)
+      break
+    }
+    case 'bike': {
+      g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(x + w / 2 + 2, y + h / 2 + 3, w / 2, h / 2, 0, 0, Math.PI * 2); g.fill()
+      g.fillStyle = '#17191D'; rr(g, x + w / 2 - 4, y, 8, 14, 3); g.fill(); rr(g, x + w / 2 - 4, y + h - 14, 8, 14, 3); g.fill()
+      g.fillStyle = (p.seed ?? 0) % 2 ? '#A6332A' : '#2C5F8A'; rr(g, x + 5, y + 10, w - 10, h - 20, 6); g.fill()
+      g.fillStyle = '#1F2125'; rr(g, x + 7, y + 24, w - 14, 20, 4); g.fill()
+      g.fillStyle = '#B9BEC4'; g.fillRect(x, y + 12, w, 2.5)
+      g.fillStyle = '#F2E6B0'; g.beginPath(); g.arc(x + w / 2, y + 9, 3, 0, Math.PI * 2); g.fill()
+      break
+    }
+    case 'stall': {
+      withShadow(g, 10, 5, 0.5, () => { g.fillStyle = '#6E4B2E'; rr(g, x, y, w, h, 3); g.fill() })
+      g.fillStyle = '#8A6240'; g.fillRect(x + 2, y + 2, w - 4, h - 4)
+      for (let k = 0; k < w - 4; k += 14) { g.fillStyle = (k / 14) % 2 ? '#C8442F' : '#EFE7D6'; g.fillRect(x + 2 + k, y + 2, Math.min(14, w - 4 - k), 9) }
+      for (const [cx, col] of [[x + 26, '#C9CDD1'], [x + 58, '#C9CDD1'], [x + 92, '#3A3D42']] as const) {
+        g.fillStyle = '#2A2C30'; g.beginPath(); g.arc(cx, y + 28, 12, 0, Math.PI * 2); g.fill()
+        g.fillStyle = col; g.beginPath(); g.arc(cx, y + 28, 10, 0, Math.PI * 2); g.fill()
+      }
+      g.fillStyle = '#E3C27A'; g.beginPath(); g.arc(x + 26, y + 28, 7, 0, Math.PI * 2); g.fill()
+      g.fillStyle = '#B5793A'; g.beginPath(); g.arc(x + 58, y + 28, 7, 0, Math.PI * 2); g.fill()
+      for (let i = 0; i < 4; i++) { g.fillStyle = '#F2EEE6'; g.beginPath(); g.arc(x + 108 + (i % 2) * 11, y + 20 + ((i / 2) | 0) * 12, 4.5, 0, Math.PI * 2); g.fill() }
+      break
+    }
+    case 'mat': {
+      g.fillStyle = '#4A3B2C'; rr(g, x, y, w, h, 2); g.fill()
+      g.fillStyle = 'rgba(255,255,255,0.08)'
+      for (let k = x + 4; k < x + w - 2; k += 5) g.fillRect(k, y + 3, 2, h - 6)
       break
     }
     case 'bin': {

@@ -12,7 +12,8 @@
       </div>
     </div>
 
-    <ol class="cases" aria-label="Cases">
+    <div v-if="!showCases" class="place"><IconMapPin :size="15" stroke-width="1.8" /> {{ place }}</div>
+    <ol v-else class="cases" aria-label="Cases">
       <li v-for="c in caseRows" :key="c.id" :class="['case', c.status]" :title="`${c.room} — ${c.label}`">
         <span class="case-dot"></span>
         <span class="case-room">{{ c.room }}</span>
@@ -22,7 +23,7 @@
     <div class="tools">
       <div class="stat" title="Clues collected">
         <IconFileSearch :size="16" stroke-width="1.8" />
-        <span class="t-mono">{{ store.evidenceCount }}<span class="dim">/{{ store.evidenceTotal }}</span></span>
+        <span class="t-mono">{{ store.evidenceCount + store.storyClues.length }}<span class="dim">/{{ store.evidenceTotal + storyTotal }}</span></span>
       </div>
       <div class="stat xp" :title="lvl.next === null ? 'Top level' : `${lvl.next - store.totalXP} XP to level ${lvl.level + 1}`">
         <span class="t-mono">{{ store.totalXP.toLocaleString() }}</span>
@@ -45,18 +46,20 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { IconBook2, IconVolume, IconVolumeOff, IconMenu2, IconFileSearch, IconHeartbeat } from '@tabler/icons-vue'
+import { IconBook2, IconVolume, IconVolumeOff, IconMenu2, IconFileSearch, IconHeartbeat, IconMapPin } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { rooms } from '@/game/world'
 import { scenarios } from '@/data'
 import { rankFor, levelProgress } from '@/game/stride'
+import { clues, talks } from '@/data/story'
 import DetectiveAvatar from './DetectiveAvatar.vue'
 
-defineProps<{ muted: boolean }>()
+defineProps<{ muted: boolean; place: string; showCases: boolean }>()
 defineEmits<{ manual: []; menu: []; toggleSound: [] }>()
 
 const store = useGameStore()
 const rank = computed(() => rankFor(store.totalXP))
+const storyTotal = Object.keys(clues).length + Object.keys(talks).length
 const lvl  = computed(() => levelProgress(store.totalXP))
 
 const caseRows = computed(() => scenarios.map(s => {
@@ -105,6 +108,7 @@ const caseRows = computed(() => scenarios.map(s => {
 .xp-track { display: block; width: 36px; height: 4px; margin-left: 6px; background: var(--color-ink-700); border-radius: 2px; overflow: hidden; }
 .xp-fill { display: block; height: 100%; background: #F0C674; transition: width .35s; }
 
+.place { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--color-ink-line); border-radius: 3px; font-size: 13px; color: var(--color-fog); white-space: nowrap; }
 .cases { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
 .case {
   display: flex;

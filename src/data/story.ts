@@ -5,13 +5,15 @@
 
 import type { StrideCategory } from '@/stores/game'
 
-export type CharId = 'mc' | 'sari' | 'dimas' | 'raka' | 'ratna' | 'laras' | 'ayu' | 'unknown' | 'warden'
-export type Backdrop = 'day' | 'night' | 'dark'
+export type CharId = 'mc' | 'sari' | 'dimas' | 'raka' | 'ratna' | 'laras' | 'ayu' | 'pakjo' | 'unknown' | 'warden'
+export type Backdrop = 'day' | 'night' | 'dark' | 'art'
+/** Drawn scenes, see game/illustrations.ts */
+export type ArtId = 'party' | 'laptop' | 'alone' | 'funeral' | 'homeNight' | 'kost' | 'tower'
 export type Motif = 'warm' | 'grief' | 'dread' | 'resolve'
 
 export type Line =
-  /** Changes the backdrop; does not wait for input. `room` is a world room id. */
-  | { k: 'bg'; bg: Backdrop; room?: string; label?: string; motif?: Motif }
+  /** Changes the backdrop; does not wait for input. `room` is a world room id, `art` a drawn scene. */
+  | { k: 'bg'; bg: Backdrop; room?: string; art?: ArtId; label?: string; motif?: Motif }
   | { k: 'card'; title: string; sub?: string; small?: string; motif?: Motif }
   | { k: 'narr'; text: string }
   | { k: 'say'; who: CharId; text: string; as?: string; color?: string }
@@ -27,7 +29,8 @@ export const CAST: Record<CharId, { name: string; role: string }> = {
   raka:    { name: 'Raka',     role: 'Senior platform engineer' },
   ratna:   { name: 'Bu Ratna', role: 'Head of Engineering' },
   laras:   { name: 'Laras',    role: 'Your sister' },
-  ayu:     { name: 'Ayu',      role: '' },
+  ayu:     { name: 'Ayu',      role: 'Room 8' },
+  pakjo:   { name: 'Pak Jo',   role: 'Mie ayam, since 1998' },
   unknown: { name: '???',      role: '' },
   warden:  { name: 'Warden',   role: '' },
 }
@@ -42,7 +45,7 @@ export const prologue: Line[] = [
     small: 'If that is close to home today, it is fine to come back another time.',
   },
 
-  { k: 'bg', bg: 'day', room: 'pantry', label: 'PayVault HQ · 14th floor · Friday 16:40', motif: 'warm' },
+  { k: 'bg', bg: 'art', art: 'party', label: 'PayVault HQ · 14th floor · Friday 16:40', motif: 'warm' },
   { k: 'narr', text: 'Friday cake in the pantry. Somebody found candles.' },
   { k: 'say', who: 'ratna', text: 'Fraud losses are down forty percent this quarter, and most of that is one person\'s work. {name}, from Monday you lead the platform team.' },
   { k: 'say', who: 'sari', text: 'Told you! You owe me lunch. I applied for that job too, you know. I am only slightly furious.' },
@@ -57,14 +60,16 @@ export const prologue: Line[] = [
   { k: 'chat', thread: 'Laras', from: 'mc', text: 'welcome to the future. don\'t spend it all on boba' },
   { k: 'narr', text: 'You put the phone away, smiling. Across the table, someone watches you do it.' },
 
-  { k: 'bg', bg: 'dark', label: 'That night' },
+  { k: 'bg', bg: 'dark' },
   { k: 'card', title: 'That night', motif: 'dread' },
+  { k: 'bg', bg: 'art', art: 'laptop', label: 'That night' },
   { k: 'narr', text: 'One of the people who clapped for you goes home, opens a laptop, and types your sister\'s phone number into a search box.' },
   { k: 'say', who: 'unknown', text: 'Always the good one. Let\'s see how good you are when it isn\'t you it happens to.' },
   { k: 'narr', text: 'They can\'t touch you. Your record is spotless. But the systems you all built together have gaps, and they know every one.' },
 
   { k: 'bg', bg: 'dark' },
   { k: 'card', title: 'Week one' },
+  { k: 'bg', bg: 'art', art: 'alone', label: 'Kost Melati · room 7' },
   { k: 'chat', thread: 'Unknown number', from: 'unknown', text: 'Mie ayam at Pak Jo, 12:41. Kost Melati, room 7. I can see where your money goes, Laras.' },
   { k: 'chat', thread: 'Unknown number', from: 'laras', text: 'who is this' },
   { k: 'chat', thread: 'Unknown number', from: 'unknown', text: 'Tell your brother and it gets worse.' },
@@ -85,23 +90,104 @@ export const prologue: Line[] = [
   { k: 'chat', thread: 'Laras', from: 'laras', text: 'never mind. sleep well. sunday dinner was nice', meta: '02:19' },
   { k: 'narr', text: 'You see it at seven, on the train. You call. It rings out.' },
 
+  { k: 'bg', bg: 'dark' },
   { k: 'card', title: 'Laras took her own life on a Tuesday.', sub: 'She was nineteen. She did not leave a note.', motif: 'grief' },
+  { k: 'bg', bg: 'art', art: 'funeral' },
   { k: 'narr', text: 'The funeral is small. Sari holds your arm. Dimas brings food nobody eats. Raka shakes your hand with both of his.' },
   { k: 'narr', text: 'Everyone says the same thing: nobody saw it coming.' },
 
-  { k: 'bg', bg: 'dark', label: 'Eleven days later · 01:31' },
+  { k: 'bg', bg: 'dark' },
   { k: 'card', title: 'Eleven days later', sub: '01:31' },
-  { k: 'narr', text: 'You can\'t sleep, so you go through her phone again. It was wiped before she died. But one message was scheduled, and tonight it sends.' },
+  { k: 'bg', bg: 'art', art: 'homeNight', label: 'Home · 01:31' },
+  { k: 'narr', text: 'You can\'t sleep. Her phone is in her old room down the hall, wiped clean the afternoon before she died. But one message was scheduled, and tonight it sends.' },
   { k: 'chat', thread: 'Laras', from: 'laras', text: 'kak. if you\'re reading this i couldn\'t tell you. they said it would get worse if i did, and it got worse anyway', meta: 'Scheduled' },
-  { k: 'chat', thread: 'Laras', from: 'laras', text: 'it started in PayVault. everything they knew about me, they got from there. it\'s someone on the inside' },
-  { k: 'chat', thread: 'Laras', from: 'laras', text: 'there\'s a security manual your office makes everyone skip. i read it. it has a name for each thing they did to me. six of them' },
+  { k: 'chat', thread: 'Laras', from: 'laras', text: 'i wrote everything down. not at home. my phone knows where' },
   { k: 'chat', thread: 'Laras', from: 'laras', text: 'i\'m sorry. don\'t be angry at yourself. you\'re the good one, remember' },
-
-  { k: 'bg', bg: 'night', room: 'lobby', label: 'PayVault HQ · 14th floor · 02:14', motif: 'dread' },
-  { k: 'narr', text: 'Forty minutes later you badge onto the 14th floor.' },
-  { k: 'narr', text: 'Five rooms are dark and the intrusion alarm is going. Someone is inside the systems right now, erasing three weeks of logs, and they have left things behind to guard the work.' },
-  { k: 'say', who: 'mc', text: 'Whoever you are. I am going to find every single thing you did to her.' },
+  { k: 'say', who: 'mc', text: 'Wrote what down? Laras… what happened to you?' },
 ]
+
+// ─── Places ──────────────────────────────────────────────────────────────
+
+export type PlaceId = 'home' | 'kost' | 'hq'
+
+/** Pins on the city map. x/y are in the map's 1000×620 drawing space. */
+export const places: { id: PlaceId; name: string; blurb: string; x: number; y: number }[] = [
+  { id: 'home', name: 'Home',        blurb: 'Where she grew up. Her old room is down the hall.', x: 190, y: 430 },
+  { id: 'kost', name: 'Kost Melati', blurb: 'Her boarding house near campus. Room 7.',            x: 520, y: 250 },
+  { id: 'hq',   name: 'PayVault HQ', blurb: 'Your office. 14th floor.',                           x: 810, y: 400 },
+]
+
+/** Played the first time you arrive somewhere. */
+export const arrivals: Partial<Record<PlaceId, Line[]>> = {
+  kost: [
+    { k: 'bg', bg: 'art', art: 'kost', label: 'Kost Melati · 02:05', motif: 'grief' },
+    { k: 'narr', text: 'A row of rented rooms around a courtyard. Room 7\'s light is off. Someone has left flowers at the door, and they have already dried.' },
+    { k: 'narr', text: 'Across the yard Pak Jo\'s warung is still open. It always is. Next door, in room 8, a lamp is on.' },
+  ],
+  hq: [
+    { k: 'bg', bg: 'art', art: 'tower', label: 'PayVault HQ · 02:14', motif: 'dread' },
+    { k: 'narr', text: 'Forty floors of dark glass, and one floor pulsing red.' },
+    { k: 'narr', text: 'Five rooms are dark and the intrusion alarm is going. Someone is inside the systems right now, erasing three weeks of logs, and they have left things behind to guard the work.' },
+    { k: 'say', who: 'mc', text: 'Whoever you are. I am going to find every single thing you did to her.' },
+  ],
+}
+
+/** Things to examine outside the office. Keys match interactable ids in game/world.ts. */
+export const clues: Record<string, { place: PlaceId; unlocks?: PlaceId; lines: Line[] }> = {
+  'h-laptop': { place: 'home', lines: [
+    { k: 'narr', text: 'The VPN client is blinking. PayVault on-call: an intrusion alarm on the 14th floor, five rooms, nobody answering the page.' },
+    { k: 'say', who: 'mc', text: 'Not tonight. Somebody else can take it.' },
+  ] },
+  'h-photo': { place: 'home', lines: [
+    { k: 'narr', text: 'Sunday dinner, three weeks ago. She is laughing at something you said. You can\'t remember what it was.' },
+  ] },
+  'h-phone': { place: 'home', unlocks: 'kost', lines: [
+    { k: 'narr', text: 'Factory reset, the afternoon before. Messages, photos, apps, all gone. But reminders sync from the SIM, and one is left.' },
+    { k: 'chat', thread: 'Reminders', from: 'laras', text: 'kost melati, room 7. under the desk drawer. before bu yati clears the room', meta: 'No date' },
+    { k: 'say', who: 'mc', text: 'Her boarding house. Twenty minutes on the bike.' },
+  ] },
+  'h-statement': { place: 'home', lines: [
+    { k: 'narr', text: 'A wallet statement she printed herself. Nine transfers out in two days, each marked "sent by account holder".' },
+    { k: 'narr', text: 'In the margin, in her handwriting, pressed hard enough to tear the paper: NOT ME. NOT ME. NOT ME.' },
+  ] },
+  'h-letter': { place: 'home', lines: [
+    { k: 'narr', text: 'From the faculty, dated week two. "Complaints have been received that you solicited money from fellow students by message. Attend a hearing on the 21st."' },
+    { k: 'say', who: 'mc', text: 'She never asked anyone for money in her life. She wouldn\'t even let me pay for her books.' },
+  ] },
+  'h-fridge': { place: 'home', lines: [
+    { k: 'narr', text: '"kak, leftover rendang, don\'t finish it ALL. L." The container is still behind it. Nobody has been able to move either one.' },
+  ] },
+  'k-codes': { place: 'kost', lines: [
+    { k: 'narr', text: 'A shoebox of sticky notes, each with a six-digit login code and a time. 01:52. 01:52. 01:53. Hundreds of them.' },
+    { k: 'narr', text: 'On the lid: "412 codes in one night. I didn\'t ask for any of them."' },
+  ] },
+  'k-tickets': { place: 'kost', lines: [
+    { k: 'narr', text: 'Four support tickets to PayVault, printed and stapled. "Someone is inside my account." "Please, I need a human." Each one stamped CLOSED, RESOLVED BY ADMIN, inside a minute.' },
+    { k: 'say', who: 'mc', text: 'Nobody on our support team closes a ticket in forty seconds.' },
+  ] },
+  'k-notebook': { place: 'kost', unlocks: 'hq', lines: [
+    { k: 'narr', text: 'Taped under the drawer: a school exercise book. Dates, times, screenshots glued in. She documented everything, the way you once taught her to do for bugs.' },
+    { k: 'narr', text: 'On the last page, six words copied out in careful capitals, each one ticked: SPOOFING. TAMPERING. REPUDIATION. INFORMATION DISCLOSURE. DENIAL OF SERVICE. ELEVATION OF PRIVILEGE.' },
+    { k: 'narr', text: 'Underneath: "from the security manual at kak\'s office. it has a name for each thing they did to me. everything they know comes out of PAYVAULT. it is someone INSIDE."' },
+    { k: 'say', who: 'mc', text: 'My office. The systems I work on.' },
+    { k: 'narr', text: 'Your phone buzzes again. The on-call page you ignored: intrusion alarm, 14th floor, five rooms. Someone is in there tonight.' },
+  ] },
+}
+
+export const talks: Record<string, Line[]> = {
+  'npc-ayu': [
+    { k: 'say', who: 'ayu', text: 'You\'re her brother. I\'m… I was next door. Ayu.' },
+    { k: 'say', who: 'ayu', text: 'She messaged me asking to borrow money. Then she said it wasn\'t her. I told her, "it\'s your account." That is the last real thing I said to her.' },
+    { k: 'say', who: 'ayu', text: 'When her receipts went round the group, I didn\'t post them. But I laughed. Everybody laughed.' },
+    { k: 'say', who: 'mc', text: 'Did she ever say who was doing it?' },
+    { k: 'say', who: 'ayu', text: 'She said someone could see her. Where she ate, what she bought, like a window into her room. She stopped paying with the app. She said the app was the window.' },
+  ],
+  'npc-pakjo': [
+    { k: 'say', who: 'pakjo', text: 'Mie ayam, every day, twelve-forty. Always scanned the code to pay. PayVault, the blue one.' },
+    { k: 'say', who: 'pakjo', text: 'Then one day she pays in coins, counting them out with her hands shaking. Said her wallet was empty and nobody believed her.' },
+    { k: 'say', who: 'pakjo', text: 'I told her, eat first, pay whenever. She cried into the bowl. I should have asked her more. Sit, eat something. You look like her when you frown.' },
+  ],
+}
 
 // ─── Counters (the six answers, never introduced as a framework) ─────────
 

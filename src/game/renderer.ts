@@ -3,7 +3,7 @@ import {
   WORLD_W, WORLD_H, TILE, COLS, props, doors, rooms, roomById, ceilingLights, interactables,
   isWallTile, type Room,
 } from './world'
-import { drawDetective, rr, type Facing, type Ctx } from './sprites'
+import { drawDetective, drawCivilian, rr, type Facing, type Ctx } from './sprites'
 import { drawWarden } from './portraits'
 
 export type CaseStatus = 'breach' | 'visited' | 'solved'
@@ -22,7 +22,9 @@ export interface FrameState {
   particles: { x: number; y: number; life: number; max: number }[]
   allSolved: boolean
   wardens: { x: number; y: number; color: string; name: string; alert: boolean; stunned: boolean; near: boolean }[]
-  npc: { x: number; y: number; color: string } | null
+  npcs: { x: number; y: number; shirt: string; hair: string; skin: string; long?: boolean; back?: boolean }[]
+  /** Everything outside the current zone is blacked out. */
+  zone: { x: number; y: number; w: number; h: number }
 }
 
 interface Emissive { x: number; y: number; r: number; color: string; room?: string; scenarioId?: string; kind: string }
@@ -57,6 +59,8 @@ function buildEmissives(): Emissive[] {
       case 'crac':       out.push({ x: p.x + 13, y: cy, r: 16, color: '#7AE0B0', room: p.room, kind: 'crac' }); break
       case 'screenWall': out.push({ x: cx, y: p.y + p.h + 10, r: 170, color: '#E8E2D0', room: 'briefing', kind: 'screen' }); break
       case 'elevator':   out.push({ x: cx, y: p.y + 2, r: 18, color: '#F06A4A', room: 'lifts', kind: 'liftlight' }); break
+      case 'tv':         out.push({ x: cx, y: p.y + p.h + 14, r: 90, color: '#7FA6E8', room: p.room, kind: 'tv' }); break
+      case 'stall':      out.push({ x: cx, y: p.y + p.h, r: 110, color: '#F2C879', room: p.room, kind: 'lamp' }); break
     }
   }
   return out
@@ -143,7 +147,7 @@ export class Renderer {
     this.drawDoors(g, s)
     this.drawParticles(g, s)
     const p = s.player
-    if (s.npc) drawDetective(g, s.npc.x, s.npc.y, s.npc.color, 'up', 0, false)
+    for (const n of s.npcs) if (this.inView(s, n.x, n.y, 60)) drawCivilian(g, n.x, n.y, n, n.back)
     drawDetective(g, p.x, p.y, p.color, p.facing, p.phase, p.moving)
 
     this.drawLighting(s)
@@ -152,6 +156,14 @@ export class Renderer {
     this.drawEmissiveSurfaces(g, s)
     this.drawMarkers(g, s)
     this.drawWardens(g, s)
+
+    // the rest of the city is not on this map
+    const z = s.zone, far = 6000
+    g.fillStyle = '#06080B'
+    g.fillRect(z.x - far, z.y - far, far, far * 2 + z.h)
+    g.fillRect(z.x + z.w, z.y - far, far, far * 2 + z.h)
+    g.fillRect(z.x, z.y - far, z.w, far)
+    g.fillRect(z.x, z.y + z.h, z.w, far)
 
     // name tag
     g.font = '600 10px "IBM Plex Sans", sans-serif'
@@ -537,7 +549,18 @@ export class Renderer {
         g.restore()
       }
 
-      if (it.kind === 'evidence') {
+      if (it.kind === 'travel') {
+        const bob = Math.sin(t * 3 + it.x) * 2
+        g.save()
+        g.translate(it.x, it.y - 30 + bob)
+        g.fillStyle = 'rgba(0,0,0,0.5)'
+        g.beginPath(); g.moveTo(-9, -6); g.lineTo(9, -6); g.lineTo(0, 9); g.closePath(); g.fill()
+        g.fillStyle = '#F0C674'
+        g.beginPath(); g.moveTo(-7, -5); g.lineTo(7, -5); g.lineTo(0, 7); g.closePath(); g.fill()
+        g.restore()
+      }
+
+      if (it.kind === 'evidence' || it.kind === 'clue' || it.kind === 'npc') {
         const st = s.caseStatus[it.scenarioId!]
         if (st === 'solved' || s.foundEvidence.has(it.id)) continue
         const d = Math.hypot(it.x - p.x, it.y - p.y)

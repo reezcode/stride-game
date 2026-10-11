@@ -120,3 +120,29 @@ export function drawDetective(g: Ctx, x: number, y: number, color: string, facin
   g.fillStyle = 'rgba(255,255,255,0.08)'
   g.fillRect(x - 6, by - 42, 6, 2)
 }
+
+/** A bystander seen from above and in front, in the same proportions as the detective. */
+export function drawCivilian(g: Ctx, x: number, y: number, look: { shirt: string; hair: string; skin: string; long?: boolean }, back = false) {
+  g.fillStyle = 'rgba(0,0,0,0.38)'
+  g.beginPath(); g.ellipse(x, y, 12, 5, 0, 0, Math.PI * 2); g.fill()
+  g.fillStyle = '#2B2F38'
+  rr(g, x - 9, y - 10, 8, 10, 3); g.fill()
+  rr(g, x + 1, y - 10, 8, 10, 3); g.fill()
+  if (look.long) { g.fillStyle = look.hair; rr(g, x - 10, y - 44, 20, 26, 8); g.fill() }
+  const grad = g.createLinearGradient(x - 11, 0, x + 11, 0)
+  grad.addColorStop(0, shade(look.shirt, 0.15)); grad.addColorStop(1, shade(look.shirt, -0.3))
+  g.fillStyle = grad
+  rr(g, x - 11, y - 30, 22, 22, 8); g.fill()
+  g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1; g.stroke()
+  g.fillStyle = look.skin
+  g.beginPath(); g.arc(x, y - 36, 8.5, 0, Math.PI * 2); g.fill()
+  g.fillStyle = look.hair
+  g.beginPath()
+  if (back) g.arc(x, y - 36, 8.8, 0, Math.PI * 2)
+  else { g.arc(x, y - 37, 8.8, Math.PI * 1.02, Math.PI * 1.98); g.quadraticCurveTo(x, y - 41, x - 8.8, y - 37) }
+  g.fill()
+  if (!back) {
+    g.fillStyle = '#1B1612'
+    g.beginPath(); g.arc(x - 3, y - 35, 1, 0, Math.PI * 2); g.arc(x + 3, y - 35, 1, 0, Math.PI * 2); g.fill()
+  }
+}

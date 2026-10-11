@@ -1,6 +1,7 @@
 <template>
-  <div class="scene" :class="backdrop.bg" @click="advance">
-    <canvas v-show="backdrop.bg !== 'dark'" ref="bgEl" class="bg" aria-hidden="true"></canvas>
+  <div class="scene" :class="[backdrop.bg, { overlay }]" @click="advance">
+    <canvas v-show="backdrop.bg === 'day' || backdrop.bg === 'night'" ref="bgEl" class="bg" aria-hidden="true"></canvas>
+    <canvas v-show="backdrop.bg === 'art'" ref="artEl" class="art" aria-hidden="true"></canvas>
     <div class="shade" aria-hidden="true"></div>
 
     <div v-if="backdrop.label" class="t-label where">{{ backdrop.label }}</div>
@@ -64,13 +65,15 @@
 import { ref, shallowRef, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { IconPlayerTrackNext, IconChevronLeft } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
-import { CAST, fill, type Line, type Backdrop, type CharId } from '@/data/story'
+import { CAST, fill, type Line, type Backdrop, type CharId, type ArtId } from '@/data/story'
+import { drawArt, ART_W, ART_H } from '@/game/illustrations'
 import { paintStatic } from '@/game/paintStatic'
 import { roomById, TILE } from '@/game/world'
 import { drawPortrait } from '@/game/portraits'
 import { sfx, motif, unlockAudio } from '@/game/audio'
 
-const props = withDefaults(defineProps<{ lines: Line[]; canSkip?: boolean }>(), { canSkip: true })
+// `overlay`: played on top of the game, so a scene without a backdrop lets the world show through
+const props = withDefaults(defineProps<{ lines: Line[]; canSkip?: boolean; overlay?: boolean }>(), { canSkip: true, overlay: false })
 const emit = defineEmits<{ done: [] }>()
 
 const store = useGameStore()
@@ -78,12 +81,13 @@ const name = computed(() => store.playerName || 'You')
 
 const idx = ref(-1)
 const line = computed<Line | null>(() => props.lines[idx.value] ?? null)
-const backdrop = ref<{ bg: Backdrop; room?: string; label?: string }>({ bg: 'dark' })
+const backdrop = ref<{ bg: Backdrop; room?: string; art?: ArtId; label?: string }>({ bg: 'dark' })
 
 interface Msg { from: CharId; text: string; mine: boolean; meta?: string }
 const thread = shallowRef<{ title: string; msgs: Msg[] } | null>(null)
 
 const bgEl = ref<HTMLCanvasElement | null>(null)
+const artEl = ref<HTMLCanvasElement | null>(null)
 const faceEl = ref<HTMLCanvasElement | null>(null)
 const msgsEl = ref<HTMLElement | null>(null)
 
@@ -124,7 +128,7 @@ function show() {
   // backdrop changes apply immediately and fall through to the next line
   while (line.value?.k === 'bg') {
     const b = line.value
-    backdrop.value = { bg: b.bg, room: b.room, label: b.label }
+    backdrop.value = { bg: b.bg, room: b.room, art: b.art, label: b.label }
     if (b.motif) motif(b.motif)
     paintBackdrop()
     idx.value++
@@ -184,7 +188,7 @@ function skip() {
   let i = Math.max(0, idx.value)
   while (i < props.lines.length && props.lines[i].k !== 'choice') {
     const b = props.lines[i]
-    if (b.k === 'bg') backdrop.value = { bg: b.bg, room: b.room, label: b.label }
+    if (b.k === 'bg') backdrop.value = { bg: b.bg, room: b.room, art: b.art, label: b.label }
     i++
   }
   thread.value = null
@@ -214,6 +218,24 @@ function paintBackdrop() {
   g.drawImage(plan, c.width / 2 - cx * k, c.height / 2 - cy * k, plan.width * k, plan.height * k)
 }
 
+// Drawn scenes are animated, so they repaint every frame while visible.
+let raf = 0
+function paintArt(now: number) {
+  const c = artEl.value
+  const id = backdrop.value.art
+  if (c && id && backdrop.value.bg === 'art') {
+    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    const W = Math.round(window.innerWidth * dpr), H = Math.round(window.innerHeight * dpr)
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H }
+    const g = c.getContext('2d')!
+    // cover, anchored a little above centre so faces survive a tall phone crop
+    const k = Math.max(W / ART_W, H / ART_H)
+    g.setTransform(k, 0, 0, k, (W - ART_W * k) / 2, (H - ART_H * k) * 0.4)
+    drawArt(g, id, now / 1000, store.playerColor)
+  }
+  raf = requestAnimationFrame(paintArt)
+}
+
 function paintFace() {
   const c = faceEl.value
   const l = line.value
@@ -238,9 +260,11 @@ onMounted(() => {
   window.addEventListener('resize', paintBackdrop)
   idx.value = 0
   show()
+  raf = requestAnimationFrame(paintArt)
 })
 onUnmounted(() => {
   clearInterval(timer)
+  cancelAnimationFrame(raf)
   window.removeEventListener('keydown', onKey, true)
   window.removeEventListener('resize', paintBackdrop)
 })
@@ -257,7 +281,11 @@ onUnmounted(() => {
   user-select: none;
   -webkit-user-select: none;
 }
+.scene.overlay.dark { background: linear-gradient(#05070A80 0%, #05070A99 55%, #05070AF2 100%); }
+.scene.overlay.dark .card { background: #05070ACC; }
 .bg { position: absolute; inset: 0; width: 100%; height: 100%; transition: filter .6s; }
+.art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scene.art .shade { background: linear-gradient(transparent 55%, #05070AD9 100%); }
 .scene.day .bg { filter: brightness(1.02) saturate(1.05); }
 .scene.night .bg { filter: brightness(.46) saturate(.6) hue-rotate(-8deg); }
 .shade { position: absolute; inset: 0; pointer-events: none; }
