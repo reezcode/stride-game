@@ -1,183 +1,97 @@
 <template>
-  <div class="module-bg min-h-screen pt-6 pb-20 px-4">
-    <div class="scanline-layer" aria-hidden="true"></div>
-    <div v-if="!moduleData" class="flex items-center justify-center h-96">
-      <div class="flex items-center gap-3 text-center">
-        <IconLocked size="32" stroke="1.5" style="color: var(--color-text-muted);" />
-        <p class="text-sm" style="color: var(--color-text-muted);">Module not found</p>
-        <RouterLink to="/phase/2" class="btn-ghost mt-4 inline-block text-sm">← Back</RouterLink>
-      </div>
-    </div>
+  <div class="page">
+    <nav class="topbar">
+      <RouterLink to="/learn" class="back"><IconArrowLeft :size="18" /> Field manual</RouterLink>
+      <button class="back" @click="router.push('/game')">Back to the floor</button>
+    </nav>
 
-    <div v-else class="max-w-3xl mx-auto">
-      <!-- Back -->
-      <RouterLink to="/learn" class="inline-flex items-center gap-2 text-sm mb-8 transition-colors hover:opacity-70"
-        :style="`color: ${moduleData.color}`">
-        ← Back to Reference Desk
-      </RouterLink>
-
-      <!-- Module Hero -->
-      <div class="animate-fade-up card p-8 mb-8 relative overflow-hidden"
-        :style="`border-color: ${moduleData.borderColor}`">
-        <!-- Flat accent strip -->
-        <div class="absolute top-0 left-0 bottom-0 w-2 pointer-events-none"
-          :style="`background: ${moduleData.color};`">
-        </div>
-
-        <div class="relative flex items-start gap-6">
-          <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-xl"
-          :style="`background: ${moduleData.bgColor}; border: 1px solid ${moduleData.borderColor}; color: ${moduleData.color}`">
-          <component :is="strideIcons[moduleData.letter]" size="36" stroke="2" />
-        </div>
-          <div class="flex-1">
-            <div class="flex items-center gap-3 mb-2">
-              <span class="text-5xl font-black font-mono" :style="`color: ${moduleData.color}`">{{ letter }}</span>
-              <div>
-                <h1 class="text-2xl font-bold">{{ moduleData.name }}</h1>
-                <p class="text-sm" :style="`color: ${moduleData.color}`">{{ moduleData.tagline }}</p>
-              </div>
-            </div>
-            <p class="text-sm leading-relaxed whitespace-pre-line mt-3" style="color: var(--color-text-secondary);">
-              {{ moduleData.description }}
-            </p>
+    <article v-if="moduleData" class="chapter paper anim-rise" :style="{ '--cat': color }">
+      <header class="ch-head">
+        <div class="t-label kicker">Chapter {{ chapterNo }} of 6</div>
+        <div class="ch-title-row">
+          <span class="ch-letter">{{ moduleData.letter }}</span>
+          <div>
+            <h1 class="t-display ch-title">{{ moduleData.name }}</h1>
+            <div class="ch-tag">{{ moduleData.tagline }}</div>
           </div>
         </div>
+        <p class="question">{{ meta.question }}</p>
+        <p class="desc">{{ flatten(moduleData.description) }}</p>
+        <ul class="keywords">
+          <li v-for="kw in moduleData.keywords" :key="kw">{{ kw }}</li>
+        </ul>
+      </header>
 
-        <!-- Keywords -->
-        <div class="flex flex-wrap gap-2 mt-6">
-          <span v-for="kw in moduleData.keywords" :key="kw"
-            class="tag text-xs px-3 py-1.5"
-            :style="`background: ${moduleData.bgColor}; color: ${moduleData.color}; border: 1px solid ${moduleData.borderColor}`">
-            {{ kw }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Fail Points -->
-      <section class="animate-fade-in mb-8">
-        <h2 class="text-sm font-semibold uppercase tracking-wider mb-4" style="color: var(--color-text-muted);"
-          :style="`gap: 0.5rem; display: flex; align-items: center;`">
-          <IconAlertTriangle size="14" style="display: inline;" /> Common Fail Points
-        </h2>
-        <div class="grid sm:grid-cols-2 gap-3">
-          <div v-for="fp in moduleData.failPoints" :key="fp.title"
-            class="card p-4 flex items-start gap-3 transition-all hover:border-opacity-50"
-            :style="`border-color: ${moduleData.borderColor}40`">
-            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-              style="background: #EBEBЕ6; color: var(--color-text-primary);">
-              <component :is="failPointIcons[fp.icon]" size="20" stroke="2" />
-            </div>
+      <section>
+        <h2 class="h">Where systems usually fail</h2>
+        <ol class="fails">
+          <li v-for="fp in moduleData.failPoints" :key="fp.title">
+            <component :is="failPointIcons[fp.icon] ?? IconAlertTriangle" :size="20" stroke-width="1.7" class="fail-icon" />
             <div>
-              <div class="text-sm font-semibold mb-1" style="color: var(--color-text-primary);">{{ fp.title }}</div>
-              <div class="text-xs leading-relaxed" style="color: var(--color-text-muted);">{{ fp.detail }}</div>
+              <div class="fail-title">{{ fp.title }}</div>
+              <div class="fail-detail">{{ fp.detail }}</div>
             </div>
+          </li>
+        </ol>
+      </section>
+
+      <section>
+        <h2 class="h">In the wild</h2>
+        <div v-for="(ex, i) in moduleData.examples" :key="ex.title" class="example">
+          <div class="ex-head">
+            <span class="t-mono ex-no">{{ moduleData.letter }}.{{ i + 1 }}</span>
+            <h3>{{ ex.title }}</h3>
           </div>
+          <p>{{ ex.description }}</p>
+          <pre class="codeblock">{{ ex.code }}</pre>
         </div>
       </section>
 
-      <!-- Examples / Code -->
-      <section class="animate-fade-in mb-8">
-        <h2 class="text-sm font-semibold uppercase tracking-wider mb-4" style="color: var(--color-text-muted);"
-          :style="`gap: 0.5rem; display: flex; align-items: center;`">
-          <IconEye size="14" style="display: inline;" /> Real-World Examples
+      <section>
+        <h2 class="h">
+          Knowledge check
+          <span class="h-meta">2 of {{ moduleData.quiz.length }} to pass</span>
         </h2>
-        <div class="space-y-4">
-          <div v-for="ex in moduleData.examples" :key="ex.title"
-            class="card overflow-hidden"
-            :style="`border-color: ${moduleData.borderColor}40`">
-            <div class="px-5 py-4 border-b flex items-center gap-2"
-              style="border-color: var(--color-border);">
-              <div class="w-1.5 h-1.5 rounded-full" :style="`background: ${moduleData.color}`"></div>
-              <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">{{ ex.title }}</h3>
-            </div>
-            <div class="p-5 space-y-3">
-              <p class="text-sm" style="color: var(--color-text-secondary);">{{ ex.description }}</p>
-              <pre class="text-xs font-mono p-4 rounded-xl leading-relaxed overflow-x-auto"
-                style="background: var(--color-bg-elevated); color: #2E7A56; border: 1px solid var(--color-border-dim);">{{ ex.code }}</pre>
-            </div>
+
+        <div v-if="quizSubmitted" class="result" :class="passed ? 'pass' : 'fail'">
+          <div class="result-score t-display">{{ quizScore }}/{{ moduleData.quiz.length }}</div>
+          <div>
+            <div class="result-title">{{ passed ? `Passed. ${moduleData.name} is in your toolkit.` : 'Not quite. Review the chapter and try again.' }}</div>
+            <div class="result-sub">{{ passed ? (nextLetter ? `Chapter ${chapterNo + 1} is unlocked.` : 'That was the last chapter.') : 'You need at least two correct answers.' }}</div>
           </div>
         </div>
-      </section>
 
-      <!-- Quiz Section -->
-      <section class="animate-fade-in mb-8">
-        <div class="flex items-center gap-3 mb-4">
-          <h2 class="text-sm font-semibold uppercase tracking-wider" style="color: var(--color-text-muted); display: flex; align-items: center; gap: 0.5rem;">
-            <IconBrain size="14" /> Knowledge Check
-          </h2>
-          <span class="text-xs px-2 py-0.5 rounded-full"
-            :style="`background: ${moduleData.bgColor}; color: ${moduleData.color}; border: 1px solid ${moduleData.borderColor}`">
-            Pass ≥ 2/3 to unlock next
-          </span>
-        </div>
-
-        <div v-if="!quizSubmitted" class="space-y-4">
+        <div class="quiz">
           <QuizQuestion
-            v-for="(q, i) in moduleData.quiz" :key="i"
-            :question="q"
-            :index="i"
-            :color="moduleData.color"
-            :selected="quizAnswers[i]"
-            :submitted="false"
-            :dark="true"
+            v-for="(q, i) in moduleData.quiz" :key="`${attempt}-${i}`"
+            :question="q" :index="i" :color="color"
+            :selected="quizAnswers[i]" :submitted="quizSubmitted"
             @select="selectAnswer(i, $event)"
           />
-          <button
-            class="w-full py-3.5 rounded-xl font-semibold text-sm transition-all"
-            :disabled="!allQuestionsAnswered"
-            :class="allQuestionsAnswered ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'"
-            :style="allQuestionsAnswered
-              ? `background: ${moduleData.color}22; color: ${moduleData.color}; border: 1px solid ${moduleData.color}55`
-              : 'background: rgba(255,255,255,0.04); color: rgba(232,232,255,0.3); border: 1px solid rgba(255,255,255,0.08)'"
-            @click="submitQuiz"
-          >
-            Submit Quiz ({{ answeredCount }}/{{ moduleData.quiz.length }} answered)
-          </button>
         </div>
 
-        <div v-else class="space-y-4">
-          <!-- Score result -->
-          <div class="card p-6 text-center" :style="`border-top: 4px solid ${passed ? '#12A67A' : '#E8453C'}`">
-            <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3"
-              :style="passed
-                ? 'background: rgba(18,166,122,0.15); border: 1px solid rgba(18,166,122,0.3);'
-                : 'background: rgba(232,69,60,0.12); border: 1px solid rgba(232,69,60,0.3);'">
-              <component :is="passed ? IconCheck : IconRefresh"
-                size="28" stroke="2"
-                :style="`color: ${passed ? '#12A67A' : '#E8453C'}`" />
-            </div>
-            <div class="text-3xl font-black mb-2" :style="`color: ${passed ? '#12A67A' : '#E8453C'}`">
-              {{ quizScore }}/{{ moduleData.quiz.length }}
-            </div>
-            <p class="text-sm font-medium mb-1" style="color: rgba(232,232,255,0.85);">
-              {{ passed ? 'Passed! You understand ' + moduleData.name : 'Not passed. Try again!' }}
-            </p>
-            <p class="text-xs" style="color: rgba(232,232,255,0.4);">
-              {{ passed ? 'Module complete. Next module unlocked!' : 'You need at least 2/3 correct to pass.' }}
-            </p>
-          </div>
-
-          <!-- Answer review -->
-          <QuizQuestion
-            v-for="(q, i) in moduleData.quiz" :key="i"
-            :question="q"
-            :index="i"
-            :color="moduleData.color"
-            :selected="quizAnswers[i]"
-            :submitted="true"
-            :dark="true"
-          />
-
-          <div class="flex gap-3">
-            <button v-if="!passed" class="btn-ghost flex-1 py-3 text-sm" @click="retryQuiz">
-              Try Again
+        <div class="actions">
+          <template v-if="!quizSubmitted">
+            <span class="muted">{{ answeredCount }}/{{ moduleData.quiz.length }} answered</span>
+            <button class="btn btn-ink" :disabled="!allQuestionsAnswered" @click="submitQuiz">Check answers</button>
+          </template>
+          <template v-else-if="!passed">
+            <span></span>
+            <button class="btn btn-ink" @click="retryQuiz"><IconRefresh :size="17" /> Try again</button>
+          </template>
+          <template v-else>
+            <button class="btn btn-outline" @click="router.push('/learn')">All chapters</button>
+            <button class="btn btn-ink" @click="goNext">
+              {{ nextLetter ? `Next: ${nextName}` : 'Return to the floor' }} <IconArrowRight :size="17" />
             </button>
-            <button v-if="passed" class="btn-primary flex-1 py-3 text-sm" @click="goNext">
-              {{ nextRoute ? 'Next Module →' : 'All Done! Back to Map →' }}
-            </button>
-          </div>
+          </template>
         </div>
       </section>
+    </article>
+
+    <div v-else class="missing">
+      <p>That chapter doesn’t exist.</p>
+      <RouterLink to="/learn" class="btn btn-ghost">Back to the field manual</RouterLink>
     </div>
   </div>
 </template>
@@ -185,41 +99,44 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { IconArrowLeft, IconArrowRight, IconRefresh, IconAlertTriangle } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { strideData } from '@/data'
-import { strideIcons, failPointIcons, IconLocked, IconAlertTriangle, IconEye, IconBrain, IconCheck, IconRefresh } from '@/icons'
+import { failPointIcons } from '@/icons'
+import { STRIDE, STRIDE_BY } from '@/game/stride'
 import QuizQuestion from '@/components/QuizQuestion.vue'
 
-const route = useRoute()
+const route  = useRoute()
 const router = useRouter()
-const store = useGameStore()
-store.load()
-if (!store.gameStarted) router.replace('/')
+const store  = useGameStore()
 
-const letter = computed(() => (route.params.letter as string)?.toUpperCase())
+const letter     = computed(() => (route.params.letter as string)?.toUpperCase())
 const moduleData = computed(() => strideData[letter.value as keyof typeof strideData] ?? null)
+const meta       = computed(() => STRIDE_BY[letter.value] ?? STRIDE[0])
+const color      = computed(() => meta.value.color)
+const order      = STRIDE.map(s => s.letter as string)
+const chapterNo  = computed(() => order.indexOf(letter.value) + 1)
+const nextLetter = computed(() => order[order.indexOf(letter.value) + 1] ?? null)
+const nextName   = computed(() => nextLetter.value ? STRIDE_BY[nextLetter.value].name : '')
 
-const strideOrder = ['S', 'T', 'R', 'I', 'D', 'E']
-
-// Check if module is locked
 const isLocked = computed(() => {
-  const idx = strideOrder.indexOf(letter.value)
-  if (idx === 0) return false
-  return !store.completedModules.includes(strideOrder[idx - 1])
+  const idx = order.indexOf(letter.value)
+  return idx > 0 && !store.completedModules.includes(order[idx - 1])
 })
+if (isLocked.value) router.replace('/learn')
 
-if (isLocked.value) {
-  router.replace('/learn')
-}
+// Source text has hard line breaks from a template literal; let it reflow.
+function flatten(s: string) { return s.replace(/\s*\n\s*/g, ' ').trim() }
 
-// Quiz state
-const quizAnswers = ref<(number | null)[]>(moduleData.value?.quiz.map(() => null) ?? [])
-const quizSubmitted = ref(store.completedModules.includes(letter.value))
-const quizScore = ref(store.quizScores[letter.value] ?? 0)
-const passed = ref(quizScore.value >= 2)
+// Quiz
+const attempt       = ref(0)
+const quizAnswers   = ref<(number | null)[]>(moduleData.value?.quiz.map(() => null) ?? [])
+const quizSubmitted = ref(false)
+const quizScore     = ref(0)
+const passed        = ref(false)
 
 const allQuestionsAnswered = computed(() => quizAnswers.value.every(a => a !== null))
-const answeredCount = computed(() => quizAnswers.value.filter(a => a !== null).length)
+const answeredCount        = computed(() => quizAnswers.value.filter(a => a !== null).length)
 
 function selectAnswer(qIdx: number, optIdx: number) {
   if (quizSubmitted.value) return
@@ -228,132 +145,115 @@ function selectAnswer(qIdx: number, optIdx: number) {
 
 function submitQuiz() {
   if (!allQuestionsAnswered.value) return
-  const correct = moduleData.value!.quiz.reduce((acc, q, i) =>
-    acc + (quizAnswers.value[i] === q.correct ? 1 : 0), 0)
+  const correct = moduleData.value!.quiz.reduce((acc, q, i) => acc + (quizAnswers.value[i] === q.correct ? 1 : 0), 0)
   quizScore.value = correct
   quizSubmitted.value = true
   passed.value = correct >= 2
-
-  if (passed.value) {
-    store.completeModule(letter.value, correct)
-  }
+  if (passed.value) store.completeModule(letter.value, correct)
 }
 
 function retryQuiz() {
+  attempt.value++
   quizAnswers.value = moduleData.value!.quiz.map(() => null)
   quizSubmitted.value = false
   quizScore.value = 0
   passed.value = false
+  window.scrollTo({ top: document.querySelector('.quiz')?.getBoundingClientRect().top! + window.scrollY - 120, behavior: 'smooth' })
 }
 
-const nextRoute = computed(() => {
-  const idx = strideOrder.indexOf(letter.value)
-  if (idx < strideOrder.length - 1) return `/learn/${strideOrder[idx + 1]}`
-  return null
-})
-
 function goNext() {
-  if (store.phase2Completed) {
-    router.push('/game')
-  } else if (nextRoute.value) {
-    router.push(nextRoute.value)
-  } else {
-    router.push('/learn')
-  }
+  if (nextLetter.value) router.push(`/learn/${nextLetter.value}`)
+  else router.push('/game')
 }
 </script>
 
 <style scoped>
-.module-bg {
-  background: var(--game-bg);
-  background-image:
-    radial-gradient(ellipse 50% 40% at 10% 20%, rgba(114,65,224,0.05) 0%, transparent 60%);
-  color: var(--game-text);
+.page { min-height: 100vh; background: var(--color-ink-950); padding-bottom: 64px; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 920px; margin: 0 auto; padding: 16px 16px 20px;
 }
-.scanline-layer {
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 2px,
-    rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px
-  );
-  pointer-events: none;
-  z-index: 0;
+.back {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: none; border: 0; padding: 6px 0;
+  font-size: 14px; font-weight: 600; color: var(--color-fog-dim); cursor: pointer; text-decoration: none;
 }
-.max-w-3xl { position: relative; z-index: 1; }
+.back:hover { color: var(--color-fog); }
 
-/* ── Dark overrides for all child light-mode components ── */
-.module-bg :deep(.card) {
-  background: rgba(255,255,255,0.04) !important;
-  border-color: rgba(255,255,255,0.1) !important;
-  color: var(--game-text) !important;
+.chapter {
+  max-width: 888px;
+  margin: 0 auto;
+  padding: 40px 48px 36px;
+  border-radius: 2px;
+  box-shadow: 0 30px 80px #0009;
+  border-top: 6px solid var(--cat);
 }
-.module-bg :deep(.card:hover) {
-  background: rgba(255,255,255,0.07) !important;
-  border-color: rgba(255,255,255,0.18) !important;
+.kicker { color: var(--color-pen-3); }
+.ch-title-row { display: flex; align-items: flex-end; gap: 18px; margin-top: 14px; }
+.ch-letter { font-family: var(--font-cond); font-weight: 700; font-size: 104px; line-height: .78; color: var(--cat); }
+.ch-title { font-size: clamp(34px, 6vw, 52px); margin: 0; }
+.ch-tag { font-size: 15px; color: var(--color-pen-3); margin-top: 6px; }
+.question {
+  font-family: var(--font-cond);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 28px 0 10px;
+  padding-left: 14px;
+  border-left: 3px solid var(--cat);
 }
-.module-bg :deep(.card-elevated) {
-  background: rgba(255,255,255,0.06) !important;
-  border-color: rgba(255,255,255,0.08) !important;
+.desc { font-size: 16px; line-height: 1.7; margin: 0; max-width: 64ch; color: var(--color-pen-2); }
+.keywords { list-style: none; padding: 0; margin: 18px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.keywords li {
+  font-size: 13px;
+  padding: 3px 9px;
+  border: 1px solid var(--color-paper-line);
+  border-radius: 2px;
+  background: #F6F2E8;
 }
-/* headings and body text */
-.module-bg :deep([style*="color: var(--color-text-primary)"]),
-.module-bg :deep([style*="color: #0C0C0A"]) {
-  color: var(--game-text) !important;
+
+.h {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 14px; font-weight: 700;
+  margin: 40px 0 14px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-pen);
 }
-.module-bg :deep([style*="color: var(--color-text-secondary)"]),
-.module-bg :deep([style*="color: #4A4A46"]) {
-  color: var(--game-text-dim) !important;
+.h-meta { font-weight: 500; font-size: 13px; color: var(--color-pen-3); }
+
+.fails { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 28px; }
+.fails li { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px dashed var(--color-paper-line); }
+.fail-icon { color: var(--cat); flex-shrink: 0; margin-top: 2px; }
+.fail-title { font-weight: 700; font-size: 15px; }
+.fail-detail { font-size: 14px; color: var(--color-pen-2); line-height: 1.5; margin-top: 2px; }
+
+.example { margin-bottom: 26px; }
+.ex-head { display: flex; align-items: baseline; gap: 10px; }
+.ex-head h3 { margin: 0; font-size: 17px; }
+.ex-no { font-size: 12px; color: var(--cat); font-weight: 600; }
+.example p { font-size: 15px; line-height: 1.6; margin: 6px 0 10px; color: var(--color-pen-2); }
+
+.quiz { display: grid; gap: 14px; }
+.result {
+  display: flex; align-items: center; gap: 18px;
+  padding: 14px 18px; margin-bottom: 18px;
+  border-left: 4px solid;
 }
-.module-bg :deep([style*="color: var(--color-text-muted)"]),
-.module-bg :deep([style*="color: #8A8A84"]) {
-  color: var(--game-text-muted) !important;
-}
-/* code / pre blocks */
-.module-bg :deep(pre) {
-  background: rgba(8,8,20,0.8) !important;
-  border-color: rgba(255,255,255,0.08) !important;
-  color: #7ECDA4 !important;
-}
-/* icon container in fail points */
-.module-bg :deep([style*="background: #EBEBЕ6"]) {
-  background: rgba(255,255,255,0.06) !important;
-  color: var(--game-text) !important;
-}
-/* tag pills — keep their category colors, just fix bg text */
-.module-bg :deep(.tag) {
-  opacity: 0.9;
-}
-/* quiz option buttons */
-.module-bg :deep(.quiz-option) {
-  background: rgba(255,255,255,0.04) !important;
-  border-color: rgba(255,255,255,0.1) !important;
-  color: var(--game-text-dim) !important;
-}
-.module-bg :deep(.quiz-option:hover) {
-  background: rgba(255,255,255,0.08) !important;
-}
-/* btn-ghost in dark context */
-.module-bg :deep(.btn-ghost) {
-  border-color: rgba(255,255,255,0.15) !important;
-  color: var(--game-text-dim) !important;
-  background: rgba(255,255,255,0.04) !important;
-}
-.module-bg :deep(.btn-ghost:hover) {
-  border-color: rgba(255,255,255,0.3) !important;
-  color: var(--game-text) !important;
-  background: rgba(255,255,255,0.08) !important;
-}
-/* section borders */
-.module-bg :deep([style*="border-color: var(--color-border)"]) {
-  border-color: rgba(255,255,255,0.08) !important;
-}
-/* score card bottom border */
-.module-bg :deep(.space-y-4 > .card) {
-  border-top-width: 4px !important;
-}
-/* explanation text in quiz answers */
-.module-bg :deep(p[style*="color: var(--color-text"]) {
-  color: var(--game-text-dim) !important;
+.result.pass { border-color: #2F7D57; background: #2F7D5714; }
+.result.fail { border-color: #B8321F; background: #B8321F12; }
+.result-score { font-size: 44px; }
+.result.pass .result-score { color: #2F7D57; }
+.result.fail .result-score { color: #B8321F; }
+.result-title { font-weight: 700; font-size: 15px; }
+.result-sub { font-size: 14px; color: var(--color-pen-2); }
+
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+.muted { font-size: 13px; color: var(--color-pen-3); }
+
+.missing { text-align: center; color: var(--color-fog-dim); padding: 80px 16px; }
+
+@media (max-width: 640px) {
+  .chapter { padding: 28px 18px; border-radius: 0; }
+  .ch-letter { font-size: 76px; }
+  .actions .btn { flex: 1; }
 }
 </style>

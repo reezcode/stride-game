@@ -30,12 +30,12 @@ services:
           memory: 32M
 
     # ── Expose container port 8080 on host port 80 ───────────────────────────
-    ports:
-      - "80:8080"
+   # ports:
+   #   - "80:8080"
 
     # ── Isolated bridge network ───────────────────────────────────────────────
     networks:
-      - stride-net
+      - webapp-net
 
     # ── Health check using wget (available in nginx:stable-alpine) ───────────
     healthcheck:
@@ -48,5 +48,5 @@ services:
     restart: unless-stopped
 
 networks:
-  stride-net:
-    driver: bridge
+  webapp-net:
+    external: true

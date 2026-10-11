@@ -1,519 +1,506 @@
 <template>
-  <div class="panel-backdrop" @click.self="$emit('close')">
-    <div class="panel-container animate-slide-up">
-
-      <!-- Panel header -->
-      <div class="panel-header">
-        <div class="panel-title-row">
-          <div class="terminal-badge">
-            <span class="terminal-dot animate-glow-pulse" style="background:#E8453C; box-shadow: 0 0 6px #E8453C;"></span>
-            <span class="terminal-id font-mono">{{ scenario.id }}</span>
-          </div>
-          <h2 class="panel-title">{{ scenario.title }}</h2>
-          <button class="close-btn" @click="$emit('close')" title="Close">✕</button>
+  <div class="backdrop" @mousedown.self="$emit('close')">
+    <article class="sheet paper anim-rise" role="dialog" aria-modal="true" :aria-label="`Case file ${scenario.code}`">
+      <header class="head">
+        <div class="head-main">
+          <div class="t-label kicker">Case file · {{ scenario.code }} · {{ roomName }}</div>
+          <h2 class="title t-display">{{ scenario.title }}</h2>
         </div>
-        <!-- Tabs -->
-        <div class="panel-tabs">
-          <button
-            v-for="tab in tabs" :key="tab.id"
-            class="tab-btn"
-            :class="{ active: activeTab === tab.id }"
-            @click="activeTab = tab.id"
-          >{{ tab.label }}</button>
-        </div>
-      </div>
+        <span v-if="caseState?.solved" class="stamp head-stamp" :class="{ 'anim-stamp': justSealed }"
+          :style="{ color: caseState.score >= 50 ? '#2F7D57' : '#B8321F' }">Sealed</span>
+        <button class="close" title="Close (Esc)" @click="$emit('close')">
+          <IconX :size="20" stroke-width="2" />
+        </button>
+      </header>
 
-      <!-- Panel body -->
-      <div class="panel-body">
+      <nav class="tabs" role="tablist">
+        <button v-for="tb in tabs" :key="tb.id" role="tab" :aria-selected="tab === tb.id"
+          :class="{ on: tab === tb.id }" @click="tab = tb.id">
+          {{ tb.label }}
+          <span v-if="tb.badge" class="badge t-mono">{{ tb.badge }}</span>
+        </button>
+      </nav>
 
-        <!-- ── Tab: Clues ── -->
-        <div v-if="activeTab === 'clues'" class="tab-content animate-fade-in">
-          <p class="scenario-context">{{ scenario.context }}</p>
+      <div ref="bodyEl" class="body">
+        <!-- ───────── Evidence ───────── -->
+        <div v-if="tab === 'evidence'" class="cols">
+          <section>
+            <h3 class="h">Incident summary</h3>
+            <p class="lede">{{ scenario.context }}</p>
 
-          <!-- Details list -->
-          <div class="clue-section">
-            <div class="section-label">⚠️ Suspicious Observations</div>
-            <ul class="clue-list">
-              <li v-for="d in scenario.details" :key="d" class="clue-item">
-                <span class="clue-bullet">›</span> {{ d }}
+            <h3 class="h">
+              Field evidence
+              <span class="h-meta t-mono">{{ found.length }}/{{ scenario.details.length }} recovered</span>
+            </h3>
+            <ol class="evidence">
+              <li v-for="(d, i) in scenario.details" :key="i" :class="{ missing: !found.includes(i) }">
+                <span class="ev-no t-mono">{{ String(i + 1).padStart(2, '0') }}</span>
+                <div v-if="found.includes(i)">
+                  <p>{{ d }}</p>
+                  <div class="ev-src">{{ sourceOf(i) }}</div>
+                </div>
+                <div v-else>
+                  <div class="redacted" :style="{ width: `${60 + ((i * 37) % 35)}%` }"></div>
+                  <div class="ev-src">Not recovered. Search the {{ roomName }} for marked objects.</div>
+                </div>
               </li>
-            </ul>
-          </div>
+            </ol>
+            <p v-if="!caseState?.solved && found.length < scenario.details.length" class="note">
+              Each piece recovered before sealing is worth +{{ XP_RULES.evidence }} XP.
+            </p>
+          </section>
 
-          <!-- System info cards -->
-          <div class="clue-section">
-            <div class="section-label">🖥️ System Evidence</div>
-            <div v-for="(info, i) in scenario.systemInfo" :key="i" class="sys-card">
+          <section>
+            <h3 class="h">System evidence</h3>
+            <div v-for="(info, i) in scenario.systemInfo" :key="i" class="sys">
               <div v-if="info.endpoint" class="sys-row">
-                <span class="sys-label">Endpoint</span>
-                <code class="sys-code endpoint">{{ info.endpoint }}</code>
+                <div class="sys-k">Endpoint</div>
+                <code class="endpoint t-mono">{{ info.endpoint }}</code>
               </div>
               <div v-if="info.request" class="sys-row">
-                <span class="sys-label">Request</span>
-                <pre class="sys-pre">{{ info.request }}</pre>
+                <div class="sys-k">Request</div>
+                <pre class="codeblock">{{ info.request }}</pre>
               </div>
               <div v-if="info.response" class="sys-row">
-                <span class="sys-label">Response</span>
-                <pre class="sys-pre response">{{ info.response }}</pre>
+                <div class="sys-k">Response</div>
+                <pre class="codeblock resp">{{ info.response }}</pre>
               </div>
-              <div v-if="info.note" class="sys-note">
-                <span>💡</span> {{ info.note }}
-              </div>
+              <p v-if="info.note" class="sys-note">{{ info.note }}</p>
             </div>
-          </div>
 
-          <!-- Hints (togglable) -->
-          <div class="clue-section">
-            <button class="hint-toggle" @click="showHints = !showHints">
-              {{ showHints ? '🔒 Hide' : '💡 Show' }} Detective Hints
+            <h3 class="h">Analyst hints</h3>
+            <ol v-if="hintsShown.length" class="hints">
+              <li v-for="h in hintsShown" :key="h">{{ h }}</li>
+            </ol>
+            <button v-if="!caseState?.solved && hintsShown.length < scenario.hints.length"
+              class="btn btn-outline btn-sm" @click="takeHint">
+              <IconBulb :size="16" stroke-width="1.8" />
+              Request a hint
+              <span class="cost t-mono">{{ XP_RULES.hint }} XP</span>
             </button>
-            <Transition name="hint-reveal">
-              <ul v-if="showHints" class="hint-list">
-                <li v-for="h in scenario.hints" :key="h" class="hint-item">
-                  <span>🔍</span> {{ h }}
-                </li>
-              </ul>
-            </Transition>
-          </div>
+            <p v-else-if="!hintsShown.length" class="note">No hints used.</p>
+          </section>
         </div>
 
-        <!-- ── Tab: File Report ── -->
-        <div v-if="activeTab === 'report'" class="tab-content animate-fade-in">
+        <!-- ───────── Report ───────── -->
+        <div v-else-if="tab === 'report'" class="report">
+          <p class="lede">
+            Mark every STRIDE category that applies to this system, then describe each finding.
+            A correct category earns <b>+{{ XP_RULES.correct }}</b>, matching the severity adds <b>+{{ XP_RULES.severityMatch }}</b>,
+            and a category that does not apply costs <b>{{ XP_RULES.falsePositive }}</b>.
+          </p>
 
-          <div class="report-intro">
-            <p>Select all applicable <strong>STRIDE threat categories</strong> you identified in this system. For each, provide a title and explanation.</p>
-          </div>
-
-          <!-- STRIDE category selector -->
-          <div class="stride-grid">
-            <button
-              v-for="cat in strideCategories" :key="cat.letter"
-              class="stride-chip"
-              :class="{ selected: selectedCats.includes(cat.letter) }"
-              :style="selectedCats.includes(cat.letter)
-                ? `background: ${cat.color}22; border-color: ${cat.color}77; color: ${cat.color};`
-                : `border-color: rgba(255,255,255,0.1); color: rgba(232,232,255,0.5);`"
-              @click="toggleCat(cat.letter)"
-            >
-              <span class="chip-letter">{{ cat.letter }}</span>
-              <span class="chip-name">{{ cat.name }}</span>
+          <div class="picker">
+            <button v-for="c in STRIDE" :key="c.letter" type="button"
+              :class="['pick', { on: selected.includes(c.letter) }]"
+              :style="{ '--cat': c.color }"
+              :aria-pressed="selected.includes(c.letter)"
+              @click="toggle(c.letter)">
+              <span class="pick-letter">{{ c.letter }}</span>
+              <span class="pick-text">
+                <span class="pick-name">{{ c.name }}</span>
+                <span class="pick-q">{{ c.question }}</span>
+              </span>
+              <IconCheck v-if="selected.includes(c.letter)" class="pick-check" :size="18" stroke-width="2.4" />
             </button>
           </div>
 
-          <!-- Concern forms per selected category -->
-          <Transition name="concerns-fade">
-            <div v-if="selectedCats.length > 0" class="concerns-list">
-              <ConcernCard
-                v-for="cat in selectedCats" :key="cat"
-                :category="cat"
-                :concern="getConcern(cat)"
-                @update="updateConcern(cat, $event)"
-              />
-            </div>
-          </Transition>
-
-          <div v-if="selectedCats.length === 0" class="empty-hint">
-            ← Select at least one STRIDE category above to file a concern
+          <div v-if="selected.length" class="concerns">
+            <ConcernCard v-for="cat in orderedSelected" :key="cat"
+              :category="cat" :concern="getConcern(cat)" @update="concerns[cat] = $event" />
           </div>
         </div>
+
+        <!-- ───────── Findings ───────── -->
+        <div v-else-if="tab === 'findings' && caseState" class="findings">
+          <div class="score-row">
+            <div>
+              <div class="big t-display" :style="{ color: scoreColor }">{{ caseState.score }}%</div>
+              <div class="muted">of threats identified</div>
+            </div>
+            <table class="xp-table t-mono">
+              <tbody>
+                <tr v-for="row in xpRows" :key="row.label" :class="{ neg: row.value < 0, zero: row.value === 0 }">
+                  <td>{{ row.label }}</td><td>{{ row.value > 0 ? '+' : '' }}{{ row.value }}</td>
+                </tr>
+                <tr class="total"><td>Case total</td><td>+{{ caseState.xpEarned }} XP</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="h">Expected findings</h3>
+          <div v-for="gt in scenario.groundTruth" :key="gt.category + gt.title"
+            :class="['truth', caseState.correct.includes(gt.category) ? 'hit' : 'miss']"
+            :style="{ '--cat': STRIDE_BY[gt.category].color }">
+            <div class="truth-top">
+              <span class="pick-letter">{{ gt.category }}</span>
+              <div class="truth-title">
+                <b>{{ gt.title }}</b>
+                <span class="muted">{{ STRIDE_BY[gt.category].name }} · {{ gt.severity }}</span>
+              </div>
+              <span class="verdict">
+                <template v-if="caseState.correct.includes(gt.category)"><IconCheck :size="16" stroke-width="2.4" /> Found</template>
+                <template v-else><IconX :size="16" stroke-width="2.4" /> Missed</template>
+              </span>
+            </div>
+            <p>{{ gt.explanation }}</p>
+            <p v-if="filedFor(gt.category)" class="yours">
+              You wrote: “{{ filedFor(gt.category)!.title }}” · rated {{ filedFor(gt.category)!.severity }}
+              <span v-if="filedFor(gt.category)!.severity === gt.severity" class="ok">severity matches</span>
+            </p>
+          </div>
+
+          <template v-if="caseState.falsePositives.length">
+            <h3 class="h">Did not apply</h3>
+            <div v-for="cat in caseState.falsePositives" :key="cat" class="truth fp" :style="{ '--cat': STRIDE_BY[cat].color }">
+              <div class="truth-top">
+                <span class="pick-letter">{{ cat }}</span>
+                <div class="truth-title">
+                  <b>{{ filedFor(cat)?.title }}</b>
+                  <span class="muted">{{ STRIDE_BY[cat].name }} — not a threat in this scenario</span>
+                </div>
+                <span class="verdict">{{ XP_RULES.falsePositive }} XP</span>
+              </div>
+            </div>
+          </template>
+        </div>
       </div>
 
-      <!-- Panel footer -->
-      <div class="panel-footer">
-        <div class="footer-left">
-          <span v-if="activeTab === 'report' && selectedCats.length > 0" class="concern-count">
-            {{ selectedCats.length }} concern{{ selectedCats.length > 1 ? 's' : '' }} filed
-          </span>
-        </div>
-        <div class="footer-right">
-          <button class="btn-game text-sm py-2.5 px-5" @click="$emit('close')">Cancel</button>
-          <button
-            v-if="activeTab === 'clues'"
-            class="btn-game-accent py-2.5 px-6"
-            style="background: rgba(34,118,210,0.2); border-color: rgba(34,118,210,0.5); color: #7BB8F5;"
-            @click="activeTab = 'report'"
-          >
-            File Report →
+      <footer class="foot">
+        <template v-if="caseState?.solved">
+          <span class="muted">This case is closed. Its room is back online.</span>
+          <button class="btn btn-ink" @click="$emit('close')">Return to the floor</button>
+        </template>
+        <template v-else-if="tab === 'evidence'">
+          <span class="muted">{{ found.length < scenario.details.length ? 'You can file now, or keep searching for evidence.' : 'All field evidence recovered.' }}</span>
+          <button class="btn btn-ink" @click="tab = 'report'">Write the report <IconArrowRight :size="16" /></button>
+        </template>
+        <template v-else>
+          <span class="muted">{{ submitHint }}</span>
+          <button class="btn btn-alarm" :disabled="!canSubmit" @click="seal">
+            <IconGavel :size="17" stroke-width="1.8" /> Seal the case
           </button>
-          <button
-            v-else
-            class="btn-game-accent py-2.5 px-6"
-            :style="canSubmit
-              ? 'background: rgba(18,166,122,0.2); border-color: rgba(18,166,122,0.5); color: #4ECDA4;'
-              : 'opacity:0.35; cursor:not-allowed; background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:rgba(255,255,255,0.3);'"
-            :disabled="!canSubmit"
-            @click="sealCase"
-          >
-            🔒 Seal the Case
-          </button>
-        </div>
-      </div>
-    </div>
+        </template>
+      </footer>
+    </article>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useGameStore, type FiledConcern } from '@/stores/game'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { IconX, IconCheck, IconBulb, IconArrowRight, IconGavel } from '@tabler/icons-vue'
+import { useGameStore, type FiledConcern, type StrideCategory } from '@/stores/game'
 import { scenarios } from '@/data'
-import ConcernCard from '@/components/ConcernCard.vue'
+import { interactables, rooms } from '@/game/world'
+import { STRIDE, STRIDE_BY, XP_RULES } from '@/game/stride'
+import { sfx } from '@/game/audio'
+import ConcernCard from './ConcernCard.vue'
 
 const props = defineProps<{ scenarioId: string }>()
-const emit  = defineEmits<{
-  close: []
-  solved: [xp: number]
-}>()
+const emit  = defineEmits<{ close: []; solved: [xp: number] }>()
 
-const store    = useGameStore()
-const scenario = computed(() => scenarios.find(s => s.id === props.scenarioId)!)
-const tabs = [
-  { id: 'clues'  as const, label: '🔍 Clues' },
-  { id: 'report' as const, label: '📋 File Report' },
-]
-const activeTab  = ref<'clues'|'report'>('clues')
-const showHints  = ref(false)
-const selectedCats = ref<string[]>([])
-const concerns     = ref<Record<string, Omit<FiledConcern, 'id'|'category'>>>({})
+const store     = useGameStore()
+const scenario  = computed(() => scenarios.find(s => s.id === props.scenarioId)!)
+const caseState = computed(() => store.getCase(props.scenarioId))
+const roomName  = computed(() => rooms.find(r => r.scenarioId === props.scenarioId)?.name ?? '')
+const found     = computed(() => caseState.value?.evidenceFound ?? [])
+const hintsShown = computed(() => scenario.value.hints.slice(0, caseState.value?.hintsUsed ?? 0))
 
-const strideCategories = [
-  { letter: 'S', name: 'Spoofing',              color: '#E8453C' },
-  { letter: 'T', name: 'Tampering',             color: '#E8960A' },
-  { letter: 'R', name: 'Repudiation',           color: '#12A67A' },
-  { letter: 'I', name: 'Info Disclosure',       color: '#2276D2' },
-  { letter: 'D', name: 'Denial of Service',     color: '#52A882' },
-  { letter: 'E', name: 'Elevation of Privilege', color: '#7B41E0' },
-]
+type Tab = 'evidence' | 'report' | 'findings'
+const tab = ref<Tab>(caseState.value?.solved ? 'findings' : 'evidence')
+const justSealed = ref(false)
+const bodyEl = ref<HTMLElement | null>(null)
+watch(tab, () => bodyEl.value?.scrollTo({ top: 0 }))
 
-function toggleCat(letter: string) {
-  const idx = selectedCats.value.indexOf(letter)
-  if (idx === -1) selectedCats.value.push(letter)
-  else selectedCats.value.splice(idx, 1)
+const tabs = computed(() => {
+  const list: { id: Tab; label: string; badge?: string }[] = [
+    { id: 'evidence', label: 'Evidence', badge: `${found.value.length}/${scenario.value.details.length}` },
+  ]
+  if (caseState.value?.solved) list.push({ id: 'findings', label: 'Findings' })
+  else list.push({ id: 'report', label: 'Report', badge: selected.value.length ? String(selected.value.length) : undefined })
+  return list
+})
+
+function sourceOf(i: number) {
+  const it = interactables.find(x => x.scenarioId === props.scenarioId && x.detail === i)
+  return it ? `Recovered from: ${it.label}` : ''
+}
+
+function takeHint() {
+  store.useHint(props.scenarioId)
+  sfx.paper()
+}
+
+// ── Report ──
+const selected = ref<StrideCategory[]>([])
+const concerns = ref<Record<string, Omit<FiledConcern, 'id' | 'category'>>>({})
+const orderedSelected = computed(() => STRIDE.map(s => s.letter).filter(l => selected.value.includes(l)))
+
+function toggle(letter: StrideCategory) {
+  const i = selected.value.indexOf(letter)
+  if (i === -1) selected.value.push(letter)
+  else selected.value.splice(i, 1)
+  sfx.blip()
 }
 
 function getConcern(cat: string) {
   return concerns.value[cat] ?? { title: '', explanation: '', severity: 'High' as const }
 }
 
-function updateConcern(cat: string, data: Omit<FiledConcern, 'id'|'category'>) {
-  concerns.value[cat] = data
-}
-
 const canSubmit = computed(() =>
-  selectedCats.value.length > 0 &&
-  selectedCats.value.every(cat => {
-    const c = concerns.value[cat]
-    return c && c.title.trim().length > 0
-  })
+  selected.value.length > 0 &&
+  selected.value.every(cat => (concerns.value[cat]?.title ?? '').trim().length > 0),
 )
+const submitHint = computed(() => {
+  if (!selected.value.length) return 'Select at least one category.'
+  const missing = selected.value.filter(c => !(concerns.value[c]?.title ?? '').trim()).length
+  return missing ? `${missing} finding${missing > 1 ? 's' : ''} still need a title.` : 'Ready to file.'
+})
 
-function sealCase() {
+function seal() {
   if (!canSubmit.value) return
-  const filed: FiledConcern[] = selectedCats.value.map(cat => ({
+  const filed: FiledConcern[] = orderedSelected.value.map(cat => ({
     id: `${props.scenarioId}-${cat}`,
-    category: cat as FiledConcern['category'],
-    title: concerns.value[cat].title,
-    explanation: concerns.value[cat].explanation,
+    category: cat,
+    title: concerns.value[cat].title.trim(),
+    explanation: concerns.value[cat].explanation.trim(),
     severity: concerns.value[cat].severity,
   }))
   store.solveCase(props.scenarioId, filed)
-  const c = store.getCase(props.scenarioId)
-  emit('solved', c?.xpEarned ?? 0)
+  justSealed.value = true
+  tab.value = 'findings'
+  sfx.stamp()
+  emit('solved', caseState.value?.xpEarned ?? 0)
 }
+
+// ── Findings ──
+function filedFor(cat: string) {
+  return caseState.value?.filedConcerns.find(f => f.category === cat)
+}
+const scoreColor = computed(() => {
+  const s = caseState.value?.score ?? 0
+  return s >= 80 ? '#2F7D57' : s >= 50 ? '#A8680F' : '#B8321F'
+})
+const xpRows = computed(() => {
+  const b = caseState.value?.breakdown
+  if (!b) return []
+  return [
+    { label: 'Correct categories', value: b.correct },
+    { label: 'Severity matches',   value: b.severity },
+    { label: 'Evidence recovered', value: b.evidence },
+    { label: 'Hints used',         value: b.hints },
+    { label: 'Wrong categories',   value: b.falsePositives },
+  ]
+})
+
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Escape') { e.stopPropagation(); emit('close') }
+}
+onMounted(() => { window.addEventListener('keydown', onKey, true); sfx.open() })
+onUnmounted(() => { window.removeEventListener('keydown', onKey, true); sfx.close() })
 </script>
 
 <style scoped>
-.panel-backdrop {
+.backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.75);
-  backdrop-filter: blur(6px);
-  z-index: 150;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  cursor: default;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: #05070AB8;
 }
 
-.panel-container {
-  width: 100%;
-  max-width: 780px;
-  max-height: 90vh;
-  background: var(--game-bg-room);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 20px;
+.sheet {
+  width: min(980px, 100%);
+  height: min(860px, calc(100dvh - 32px));
   display: flex;
   flex-direction: column;
+  border-radius: 4px;
+  box-shadow: 0 30px 80px #000A, 0 0 0 1px #00000040;
   overflow: hidden;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
 }
 
-/* Header */
-.panel-header {
-  padding: 20px 24px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  flex-shrink: 0;
-}
-.panel-title-row {
+.head {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px 14px;
 }
-.terminal-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(232,69,60,0.12);
-  border: 1px solid rgba(232,69,60,0.3);
-  flex-shrink: 0;
-}
-.terminal-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.terminal-id {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #E8453C;
-  font-family: 'JetBrains Mono', monospace;
-}
-.panel-title {
-  flex: 1;
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--game-text);
-  line-height: 1.2;
-}
-.close-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(232,232,255,0.5);
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-.close-btn:hover { background: rgba(255,255,255,0.12); color: var(--game-text); }
-
-/* Tabs */
-.panel-tabs { display: flex; gap: 4px; padding-bottom: 1px; }
-.tab-btn {
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  border-radius: 8px 8px 0 0;
-  border: 1px solid transparent;
-  border-bottom: none;
-  cursor: pointer;
-  transition: all 0.15s;
-  color: rgba(232,232,255,0.4);
+.head-main { flex: 1; min-width: 0; }
+.kicker { color: var(--color-pen-3); margin-bottom: 6px; }
+.title { font-size: clamp(26px, 4vw, 36px); margin: 0; }
+.head-stamp { color: #2F7D57; font-size: 22px; margin-top: 6px; }
+.close {
+  display: grid; place-items: center;
+  width: 36px; height: 36px; flex-shrink: 0;
+  border: 1px solid var(--color-paper-line);
+  border-radius: 3px;
   background: transparent;
+  cursor: pointer;
 }
-.tab-btn:hover { color: rgba(232,232,255,0.7); }
-.tab-btn.active {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.1);
-  border-bottom: 1px solid var(--game-bg-room);
-  color: var(--game-text);
+.close:hover { background: var(--color-paper-2); }
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--color-paper-line);
+}
+.tabs button {
+  display: flex; align-items: center; gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-pen-3);
+  cursor: pointer;
   margin-bottom: -1px;
 }
-
-/* Body */
-.panel-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px 24px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.1) transparent;
+.tabs button:hover { color: var(--color-pen); }
+.tabs button.on {
+  color: var(--color-pen);
+  background: var(--color-paper);
+  border-color: var(--color-paper-line);
+}
+.badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  background: var(--color-paper-3);
+  color: var(--color-pen-2);
 }
 
-.tab-content { display: flex; flex-direction: column; gap: 16px; }
+.body { flex: 1; overflow-y: auto; padding: 8px 24px 24px; }
 
-.scenario-context {
+.cols { display: grid; grid-template-columns: 1.05fr 1fr; gap: 32px; }
+@media (max-width: 820px) { .cols { grid-template-columns: 1fr; gap: 0; } }
+
+.h {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
   font-size: 13px;
-  line-height: 1.7;
-  color: var(--game-text-dim);
-  padding: 12px 14px;
-  background: rgba(255,255,255,0.03);
-  border-left: 3px solid rgba(232,69,60,0.4);
-  border-radius: 0 8px 8px 0;
-}
-
-.clue-section { display: flex; flex-direction: column; gap: 8px; }
-.section-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(232,232,255,0.35);
-}
-
-.clue-list { display: flex; flex-direction: column; gap: 6px; list-style: none; padding: 0; margin: 0; }
-.clue-item {
-  display: flex;
-  gap: 8px;
-  font-size: 12.5px;
-  color: var(--game-text-dim);
-  line-height: 1.5;
-  padding: 8px 10px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 7px;
-}
-.clue-bullet { color: #E8453C; font-weight: 900; flex-shrink: 0; }
-
-.sys-card {
-  background: #080814;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.sys-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.sys-row:last-of-type { border-bottom: none; }
-.sys-label {
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.25);
-}
-.sys-code {
-  font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
-  color: #7BB8F5;
-  font-weight: 600;
-}
-.sys-pre {
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
-  color: rgba(232,232,255,0.7);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  margin: 0;
-}
-.sys-pre.response { color: #4ECDA4; }
-.sys-note {
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
-  font-size: 11px;
-  color: rgba(232,150,10,0.8);
-  padding: 8px 12px;
-  background: rgba(232,150,10,0.06);
-  line-height: 1.5;
-}
-
-/* Hints */
-.hint-toggle {
-  font-size: 11px;
   font-weight: 700;
-  color: rgba(232,232,255,0.4);
-  background: rgba(255,255,255,0.04);
-  border: 1px dashed rgba(255,255,255,0.1);
-  border-radius: 7px;
-  padding: 7px 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-  align-self: flex-start;
+  margin: 22px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-pen);
 }
-.hint-toggle:hover { color: rgba(232,232,255,0.7); border-color: rgba(255,255,255,0.2); }
-.hint-list { display: flex; flex-direction: column; gap: 6px; list-style: none; padding: 0; margin: 0; }
-.hint-item {
-  display: flex;
-  gap: 8px;
-  font-size: 12px;
-  color: rgba(232,150,10,0.8);
-  padding: 8px 10px;
-  background: rgba(232,150,10,0.06);
-  border: 1px solid rgba(232,150,10,0.15);
-  border-radius: 7px;
-  line-height: 1.5;
-}
+.h-meta { font-weight: 500; color: var(--color-pen-3); font-size: 12px; }
+.lede { font-size: 15px; line-height: 1.65; margin: 0; white-space: pre-line; color: var(--color-pen); }
+.note, .muted { font-size: 13px; color: var(--color-pen-3); }
+.note { margin: 10px 0 0; }
 
-.hint-reveal-enter-active, .hint-reveal-leave-active { transition: all 0.25s ease; }
-.hint-reveal-enter-from, .hint-reveal-leave-to { opacity: 0; transform: translateY(-8px); }
-
-/* Report tab */
-.report-intro {
-  font-size: 12.5px;
-  color: var(--game-text-dim);
-  line-height: 1.6;
-  padding: 10px 12px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 8px;
-}
-.report-intro strong { color: var(--game-text); }
-
-.stride-grid {
+.evidence { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.evidence li {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 28px 1fr;
   gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--color-paper-line);
+}
+.evidence p { margin: 0; font-size: 14px; line-height: 1.5; }
+.ev-no { font-size: 12px; color: var(--color-pen-3); padding-top: 2px; }
+.ev-src { font-size: 12px; color: var(--color-pen-3); margin-top: 3px; }
+.redacted { height: 14px; margin-top: 3px; background: var(--color-pen); border-radius: 1px; opacity: .85; }
+
+.sys { display: grid; gap: 10px; }
+.sys-k { font-size: 12px; font-weight: 600; color: var(--color-pen-3); margin-bottom: 4px; }
+.endpoint { font-size: 13px; font-weight: 600; background: var(--color-paper-2); padding: 3px 6px; border-radius: 2px; }
+.codeblock.resp { color: #BFE3C9; }
+.sys-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-left: 3px solid var(--color-amber);
+  background: #DB9A2B1A;
 }
 
-.stride-chip {
+.hints { list-style: decimal; margin: 0 0 10px; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.5; }
+.cost { font-size: 11px; color: #B8321F; }
+
+.report .lede { font-size: 14px; color: var(--color-pen-2); margin: 14px 0 16px; }
+.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.pick {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 10px 8px;
-  border-radius: 10px;
-  border: 1.5px solid;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--color-paper-line);
+  border-radius: 3px;
+  background: #F6F2E8;
   cursor: pointer;
-  transition: all 0.18s ease;
-  background: transparent;
+  position: relative;
 }
-.stride-chip:hover { transform: translateY(-2px); filter: brightness(1.2); }
-.chip-letter {
-  font-size: 20px;
-  font-weight: 900;
-  font-family: 'JetBrains Mono', monospace;
+.pick:hover { border-color: var(--color-pen-3); }
+.pick.on { border-color: var(--cat); box-shadow: inset 4px 0 0 var(--cat); background: #FBF8F1; }
+.pick-letter {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 26px;
   line-height: 1;
+  color: var(--cat);
+  width: 20px;
+  flex-shrink: 0;
 }
-.chip-name { font-size: 9px; font-weight: 700; text-align: center; line-height: 1.2; }
+.pick-text { display: grid; gap: 2px; }
+.pick-name { font-weight: 700; font-size: 14px; }
+.pick-q { font-size: 12.5px; color: var(--color-pen-3); line-height: 1.4; }
+.pick-check { position: absolute; top: 10px; right: 10px; color: var(--cat); }
 
-.concerns-list { display: flex; flex-direction: column; gap: 12px; }
-.concerns-fade-enter-active, .concerns-fade-leave-active { transition: all 0.25s ease; }
-.concerns-fade-enter-from, .concerns-fade-leave-to { opacity: 0; transform: translateY(8px); }
+.concerns { display: grid; gap: 12px; margin-top: 18px; }
 
-.empty-hint {
-  text-align: center;
-  font-size: 12px;
-  color: rgba(232,232,255,0.25);
-  padding: 24px;
-  border: 1px dashed rgba(255,255,255,0.08);
-  border-radius: 10px;
+.findings .score-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px;
+  margin-top: 14px;
 }
+.big { font-size: 64px; }
+.xp-table { border-collapse: collapse; font-size: 13px; min-width: 260px; }
+.xp-table td { padding: 4px 0; border-bottom: 1px dashed var(--color-paper-line); }
+.xp-table td:last-child { text-align: right; padding-left: 24px; }
+.xp-table tr.neg td:last-child { color: #B8321F; }
+.xp-table tr.zero { color: var(--color-pen-3); }
+.xp-table tr.total td { border-bottom: 0; border-top: 1px solid var(--color-pen); font-weight: 600; padding-top: 8px; }
 
-/* Footer */
-.panel-footer {
+.truth {
+  border: 1px solid var(--color-paper-line);
+  border-left: 4px solid var(--cat);
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: #F6F2E8;
+}
+.truth p { margin: 8px 0 0; font-size: 14px; line-height: 1.55; }
+.truth-top { display: flex; align-items: flex-start; gap: 12px; }
+.truth-title { flex: 1; display: grid; gap: 1px; font-size: 14px; }
+.verdict { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.truth.hit .verdict { color: #2F7D57; }
+.truth.miss .verdict, .truth.fp .verdict { color: #B8321F; }
+.truth.miss { background: #F3E6DD; }
+.yours { font-size: 13px !important; color: var(--color-pen-2); font-style: italic; }
+.ok { font-style: normal; color: #2F7D57; font-weight: 600; margin-left: 6px; }
+
+.foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 24px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.02);
-  flex-shrink: 0;
   gap: 12px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--color-paper-line);
+  background: var(--color-paper-2);
 }
-.footer-left { min-width: 0; }
-.footer-right { display: flex; align-items: center; gap: 8px; }
-.concern-count {
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(18,166,122,0.8);
-  font-family: 'JetBrains Mono', monospace;
+.foot .muted { min-width: 0; }
+
+@media (max-width: 640px) {
+  .backdrop { padding: 0; }
+  .sheet { height: 100dvh; border-radius: 0; }
+  .head, .body, .foot { padding-left: 16px; padding-right: 16px; }
+  .tabs { padding: 0 16px; }
+  .foot { flex-direction: column; align-items: stretch; }
+  .foot .btn { width: 100%; }
 }
 </style>

@@ -1,1476 +1,944 @@
 <template>
-  <div class="game-world" :class="{ 'panel-open': panelOpen }" tabindex="0" ref="worldRef" @keydown="onKey" @keyup="onKeyUp" @touchstart.prevent>
+  <div class="world" @pointerdown.capture="unlock">
+    <canvas ref="canvasEl" class="view"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @contextmenu.prevent></canvas>
+    <div class="vignette" aria-hidden="true"></div>
 
-    <!-- Scanline overlay -->
-    <div class="scanline-layer" aria-hidden="true"></div>
+    <GameHUD :muted="muted" @manual="goLearn" @menu="menuOpen = true" @toggle-sound="toggleSound" />
 
-    <!-- ─── HUD ─── -->
-    <GameHUD />
-
-    <!-- ─── Map canvas ─── -->
-    <div class="map-container">
-      <div class="map-floor" :style="`transform: translate(${camX}px, ${camY}px)`">
-
-        <!-- Floor grid pattern -->
-        <div class="floor-grid" aria-hidden="true"></div>
-
-        <!-- ════════════ ROOM WALLS ════════════ -->
-        <!-- Server Room -->
-        <div class="room-wall room-server"  style="left:20px;  top:40px;  width:320px; height:260px;"></div>
-        <!-- Auth Lab -->
-        <div class="room-wall room-auth"    style="left:420px; top:40px;  width:320px; height:260px;"></div>
-        <!-- Finance Vault -->
-        <div class="room-wall room-finance" style="left:820px; top:40px;  width:320px; height:260px;"></div>
-        <!-- Admin Wing -->
-        <div class="room-wall room-admin"   style="left:120px; top:440px; width:320px; height:260px;"></div>
-        <!-- Archive Bay -->
-        <div class="room-wall room-archive" style="left:560px; top:440px; width:320px; height:260px;"></div>
-        <!-- Learn Desk area -->
-        <div class="room-wall room-learn"   style="left:20px;  top:780px; width:260px; height:200px;"></div>
-        <!-- Debrief room -->
-        <div class="room-wall room-debrief" style="left:780px; top:780px; width:380px; height:200px;"></div>
-
-        <!-- Corridor lines -->
-        <div class="corridor-h" style="top:360px;"></div>
-        <div class="corridor-v" style="left:360px;"></div>
-        <div class="corridor-v" style="left:760px;"></div>
-
-        <!-- Neon corridor strips -->
-        <div class="neon-h" style="top:356px;"></div>
-        <div class="neon-h" style="top:364px; opacity:0.4;"></div>
-        <div class="neon-v" style="left:356px;"></div>
-        <div class="neon-v" style="left:764px;"></div>
-
-        <!-- Corridor intersection glow nodes -->
-        <div class="junction-dot" style="left:360px; top:360px;"></div>
-        <div class="junction-dot" style="left:760px; top:360px;"></div>
-
-        <!-- Floor direction arrows -->
-        <div class="floor-arrow" style="left:155px; top:378px;">▼</div>
-        <div class="floor-arrow" style="left:540px; top:378px;">▼</div>
-        <div class="floor-arrow" style="left:905px; top:378px;">▼</div>
-        <div class="floor-arrow" style="left:378px; top:195px;">▶</div>
-        <div class="floor-arrow" style="left:378px; top:575px;">▶</div>
-        <div class="floor-arrow" style="left:778px; top:195px;">▶</div>
-        <div class="floor-arrow" style="left:778px; top:575px;">▶</div>
-
-        <!-- ═══════════════════════════════════════ -->
-        <!-- ──────── SERVER ROOM CONTENTS ───────── -->
-        <!-- ═══════════════════════════════════════ -->
-
-        <!-- Server rack 1 -->
-        <div class="s-rack" style="left:36px; top:65px;">
-          <div class="s-rack-unit" v-for="n in 6" :key="n"
-            :style="`animation-delay:${n*0.25}s`">
-            <div class="s-rack-led" :class="n%2===0 ? 'led-green' : 'led-red'"></div>
-            <div class="s-rack-bar"></div><div class="s-rack-bar short"></div>
-          </div>
-        </div>
-        <!-- Server rack 2 -->
-        <div class="s-rack" style="left:96px; top:65px;">
-          <div class="s-rack-unit" v-for="n in 6" :key="n"
-            :style="`animation-delay:${n*0.18+0.1}s`">
-            <div class="s-rack-led" :class="n%3===0 ? 'led-orange' : 'led-green'"></div>
-            <div class="s-rack-bar"></div><div class="s-rack-bar short"></div>
-          </div>
-        </div>
-        <!-- Server rack 3 -->
-        <div class="s-rack" style="left:156px; top:65px;">
-          <div class="s-rack-unit" v-for="n in 6" :key="n"
-            :style="`animation-delay:${n*0.3+0.05}s`">
-            <div class="s-rack-led" :class="n%2===0 ? 'led-blue' : 'led-green'"></div>
-            <div class="s-rack-bar"></div><div class="s-rack-bar short"></div>
-          </div>
-        </div>
-        <!-- Cooling vent top -->
-        <div class="vent-grill" style="left:230px; top:55px;"></div>
-        <div class="vent-grill" style="left:276px; top:55px;"></div>
-        <!-- Server glow ambience -->
-        <div class="room-glow"
-          style="left:36px; top:65px; width:180px; height:130px; background:radial-gradient(ellipse, rgba(18,166,122,0.18) 0%, transparent 70%);"></div>
-        <!-- Warning tape -->
-        <div class="warn-tape" style="left:30px; top:278px; width:290px;"></div>
-        <!-- Security camera top-right of room -->
-        <div class="sec-cam" style="left:298px; top:52px; transform:scaleX(-1);">
-          <div class="cam-b"></div><div class="cam-l"><div class="cam-eye"></div></div>
-        </div>
-
-        <!-- ═══════════════════════════════════════ -->
-        <!-- ─────────── AUTH LAB CONTENTS ───────── -->
-        <!-- ═══════════════════════════════════════ -->
-
-        <!-- Monitor desk 1 -->
-        <div class="work-desk" style="left:444px; top:115px; width:76px; height:28px;"></div>
-        <div class="monitor-obj" style="left:452px; top:90px;">
-          <div class="mon-screen blue-screen"></div>
-        </div>
-        <!-- Monitor desk 2 -->
-        <div class="work-desk" style="left:554px; top:115px; width:76px; height:28px;"></div>
-        <div class="monitor-obj" style="left:562px; top:90px;">
-          <div class="mon-screen blue-screen blink-screen"></div>
-        </div>
-        <!-- Chair in front of desk 1 -->
-        <div class="chair-obj" style="left:470px; top:148px;"></div>
-        <div class="chair-obj" style="left:578px; top:148px;"></div>
-        <!-- Keypad panel on right wall -->
-        <div class="keypad-panel" style="left:706px; top:70px;">
-          <div class="kp-status" style="background:#12A67A; box-shadow:0 0 8px #12A67A;"></div>
-          <div class="kp-grid">
-            <div class="kp-btn" v-for="n in 12" :key="n"></div>
-          </div>
-        </div>
-        <!-- Screen glow ambience -->
-        <div class="room-glow"
-          style="left:440px; top:60px; width:200px; height:80px; background:radial-gradient(ellipse, rgba(34,118,210,0.2) 0%, transparent 70%);"></div>
-        <!-- Biometric scanner -->
-        <div class="bio-scanner" style="left:440px; top:252px;">
-          <div class="bio-beam"></div>
-          <span class="bio-text">BIOMETRIC</span>
-        </div>
-        <!-- Security camera -->
-        <div class="sec-cam" style="left:428px; top:52px;">
-          <div class="cam-b"></div><div class="cam-l"><div class="cam-eye"></div></div>
-        </div>
-
-        <!-- ═══════════════════════════════════════ -->
-        <!-- ──────── FINANCE VAULT CONTENTS ──────── -->
-        <!-- ═══════════════════════════════════════ -->
-
-        <!-- Big vault door -->
-        <div class="vault-door-obj" style="left:870px; top:85px;">
-          <div class="vd-outer">
-            <div class="vd-ring vd-r1"></div>
-            <div class="vd-ring vd-r2"></div>
-            <div class="vd-handle"></div>
-            <div class="vd-led" style="background:#E8453C; box-shadow:0 0 8px #E8453C;"></div>
-          </div>
-        </div>
-        <!-- Safe stacks -->
-        <div class="safe-obj" style="left:1074px; top:80px;"></div>
-        <div class="safe-obj" style="left:1074px; top:120px; opacity:0.75;"></div>
-        <!-- Warning stripes under vault door -->
-        <div class="warn-tape" style="left:830px; top:278px; width:280px; --tape-angle:-45deg;"></div>
-        <!-- Vault glow ambience -->
-        <div class="room-glow"
-          style="left:840px; top:55px; width:280px; height:200px; background:radial-gradient(ellipse, rgba(232,150,10,0.1) 0%, transparent 70%);"></div>
-        <!-- Security camera -->
-        <div class="sec-cam" style="left:1098px; top:52px; transform:scaleX(-1);">
-          <div class="cam-b"></div><div class="cam-l"><div class="cam-eye"></div></div>
-        </div>
-        <!-- Caution label -->
-        <div class="obj-label caution-label" style="left:900px; top:282px;">⚠ HIGH SECURITY ZONE</div>
-
-        <!-- ═══════════════════════════════════════ -->
-        <!-- ─────────── ADMIN WING CONTENTS ──────── -->
-        <!-- ═══════════════════════════════════════ -->
-
-        <!-- Meeting table (oval) -->
-        <div class="meeting-table" style="left:160px; top:510px;">
-          <!-- Chairs around it -->
-          <div class="mt-chair" style="top:-18px; left:50%; transform:translateX(-50%);"></div>
-          <div class="mt-chair" style="bottom:-18px; left:50%; transform:translateX(-50%);"></div>
-          <div class="mt-chair" style="left:-18px; top:50%; transform:translateY(-50%);"></div>
-          <div class="mt-chair" style="right:-18px; top:50%; transform:translateY(-50%);"></div>
-        </div>
-        <!-- Filing cabinets -->
-        <div class="cabinet-obj" style="left:128px; top:588px;"></div>
-        <div class="cabinet-obj" style="left:154px; top:588px; opacity:0.85;"></div>
-        <!-- Wall-mounted monitor -->
-        <div class="wall-mon" style="left:380px; top:455px;">
-          <div class="wm-screen purple-screen">
-            <div class="wm-line" v-for="i in 4" :key="i"></div>
-          </div>
-        </div>
-        <!-- Plant -->
-        <div class="plant-obj" style="left:393px; top:562px;">🌿</div>
-        <!-- Glow -->
-        <div class="room-glow"
-          style="left:130px; top:450px; width:280px; height:200px; background:radial-gradient(ellipse, rgba(114,65,224,0.08) 0%, transparent 70%);"></div>
-
-        <!-- ═══════════════════════════════════════ -->
-        <!-- ─────────── ARCHIVE BAY CONTENTS ──────── -->
-        <!-- ═══════════════════════════════════════ -->
-
-        <!-- Shelf unit 1 -->
-        <div class="shelf-unit" style="left:574px; top:458px;">
-          <div class="shelf-row" v-for="r in 4" :key="r">
-            <div class="s-box" v-for="b in 3" :key="b"
-              :style="`background:hsl(${(r*45+b*30)%360},55%,15%); border-color:hsl(${(r*45+b*30)%360},55%,26%)`"></div>
-          </div>
-        </div>
-        <!-- Shelf unit 2 -->
-        <div class="shelf-unit" style="left:700px; top:458px;">
-          <div class="shelf-row" v-for="r in 4" :key="r">
-            <div class="s-box" v-for="b in 3" :key="b"
-              :style="`background:hsl(${(r*60+b*20+90)%360},55%,15%); border-color:hsl(${(r*60+b*20+90)%360},55%,26%)`"></div>
-          </div>
-        </div>
-        <!-- Crate stacks -->
-        <div class="crate-obj" style="left:640px; top:625px;"></div>
-        <div class="crate-obj small-crate" style="left:670px; top:637px;"></div>
-        <!-- Glow -->
-        <div class="room-glow"
-          style="left:565px; top:450px; width:280px; height:200px; background:radial-gradient(ellipse, rgba(82,168,130,0.08) 0%, transparent 70%);"></div>
-
-        <!-- ═══════════════════════════════════════ -->
-        <!-- ─────────── LEARN DESK CONTENTS ──────── -->
-        <!-- ═══════════════════════════════════════ -->
-
-        <!-- Bookshelf -->
-        <div class="book-shelf" style="left:28px; top:800px;">
-          <div class="book" v-for="i in 8" :key="i"
-            :style="`height:${28+i*4}px; background:hsl(${i*45},60%,22%); border-color:hsl(${i*45},60%,30%);`"></div>
-        </div>
-        <!-- Study desk -->
-        <div class="work-desk" style="left:120px; top:868px; width:120px; height:30px;"></div>
-        <!-- Desk lamp -->
-        <div class="desk-lamp-obj" style="left:222px; top:848px;">
-          <div class="lamp-arm"></div>
-          <div class="lamp-shade"></div>
-          <div class="lamp-glow-spot"></div>
-        </div>
-        <!-- Plant -->
-        <div class="plant-obj" style="left:242px; top:862px;">🌱</div>
-        <!-- Warm glow -->
-        <div class="room-glow"
-          style="left:20px; top:790px; width:230px; height:170px; background:radial-gradient(ellipse, rgba(232,150,10,0.1) 0%, transparent 70%);"></div>
-
-        <!-- ═══════════════════════════════════════ -->
-        <!-- ──────── DEBRIEF ROOM CONTENTS ──────── -->
-        <!-- ═══════════════════════════════════════ -->
-
-        <!-- Big presentation screen on left wall -->
-        <div class="pres-screen" style="left:792px; top:800px;">
-          <div class="ps-content">
-            <div class="ps-line" v-for="i in 5" :key="i"
-              :style="`width:${60-i*8}%; background:${store.allSolved ? '#12A67A' : '#2276D2'};`"></div>
-          </div>
-        </div>
-        <!-- Chairs facing screen -->
-        <div class="chair-row">
-          <div class="chair-obj debrief-chair" style="left:884px; top:878px;"></div>
-          <div class="chair-obj debrief-chair" style="left:916px; top:878px;"></div>
-          <div class="chair-obj debrief-chair" style="left:948px; top:878px;"></div>
-          <div class="chair-obj debrief-chair" style="left:980px; top:878px;"></div>
-        </div>
-        <!-- Trophy if all solved -->
-        <div class="trophy-stand" style="left:1100px; top:820px;">
-          <div class="trophy-emoji" :class="{ 'trophy-lit': store.allSolved }">🏆</div>
-          <div class="trophy-plinth"></div>
-        </div>
-        <!-- Glow -->
-        <div class="room-glow"
-          :style="`left:790px; top:790px; width:360px; height:180px; background:radial-gradient(ellipse, rgba(232,150,10,${store.allSolved ? 0.15 : 0.04}) 0%, transparent 70%); transition:background 1s;`">
-        </div>
-
-        <!-- ── Terminal nodes (5 scenarios) ── -->
-        <TerminalNode
-          v-for="t in terminals" :key="t.id"
-          :terminal="t"
-          :case-progress="store.getCase(t.scenarioId)"
-          :is-near="nearTerminalId === t.id"
-          :style="`left:${t.x}px; top:${t.y}px;`"
-          @interact="openCase(t.scenarioId)"
-        />
-
-        <!-- Learn Desk interact node -->
-        <div class="desk-node learn-desk"
-          :class="{ 'desk-near': nearLearnDesk }"
-          style="left:60px; top:840px;"
-          @click="goLearn">
-          <div class="desk-icon">📚</div>
-          <div class="desk-label">STRIDE<br/>Reference</div>
-          <div v-if="nearLearnDesk" class="interact-hint">[ E ] Study</div>
-        </div>
-
-        <!-- Debrief desk (revealed when all solved) -->
-        <Transition name="fade-scale">
-          <div v-if="store.allSolved"
-            class="desk-node debrief-desk"
-            :class="{ 'desk-near': nearDebriefDesk }"
-            style="left:820px; top:840px;"
-            @click="goDebrief">
-            <div class="desk-icon">🏆</div>
-            <div class="desk-label">Mission<br/>Debrief</div>
-            <div v-if="nearDebriefDesk" class="interact-hint">[ E ] Debrief</div>
-          </div>
-        </Transition>
-
-        <!-- Player character (always on top) -->
-        <PlayerCharacter
-          :x="playerX"
-          :y="playerY"
-          :color="store.playerColor"
-          :facing="facing"
-          :moving="isMoving"
-          :name="store.playerName"
-        />
-
-      </div>
-    </div>
-
-    <!-- Interaction prompt (when near terminal) -->
-    <Transition name="slide-prompt">
-      <div v-if="nearTerminalId && !panelOpen" class="interact-banner">
-        <span class="key-badge">E</span>
-        Investigate Terminal
-        <span class="case-badge">{{ nearScenarioCode }}</span>
+    <!-- Room title -->
+    <Transition name="banner">
+      <div v-if="banner" :key="banner.title" class="banner">
+        <div class="banner-title t-display">{{ banner.title }}</div>
+        <div class="banner-sub" :class="banner.tone">{{ banner.sub }}</div>
       </div>
     </Transition>
 
-    <!-- ─── Virtual Joystick (mobile) ─── -->
-    <VirtualJoystick
-      v-if="isMobile"
-      @move="onJoystickMove"
-      @stop="onJoystickStop"
+    <!-- Objective -->
+    <aside v-if="!panelOpen" class="objective">
+      <div class="obj-compass" :style="{ transform: `rotate(${objective.angle}rad)` }" aria-hidden="true">
+        <IconNavigationFilled :size="16" />
+      </div>
+      <div class="obj-text">
+        <div class="t-label obj-k">{{ objective.kicker }}</div>
+        <div class="obj-main">{{ objective.text }}</div>
+      </div>
+    </aside>
+
+    <!-- Minimap -->
+    <div v-if="!panelOpen" class="minimap" title="Click to walk there">
+      <canvas ref="miniEl" @pointerdown.stop="onMiniClick"></canvas>
+    </div>
+
+    <!-- Interaction prompt -->
+    <Transition name="prompt">
+      <button v-if="nearInfo && !panelOpen && !menuOpen && !briefingOpen" class="prompt" @click="interact(nearInfo.id)">
+        <span class="kbd">E</span>
+        <span>{{ nearInfo.verb }}</span>
+        <span class="prompt-obj">{{ nearInfo.label }}</span>
+      </button>
+    </Transition>
+
+    <!-- Evidence note -->
+    <Transition name="note">
+      <div v-if="note" :key="note.key" class="note paper" role="status">
+        <div class="note-head">
+          <span class="t-label">Evidence · {{ note.room }}</span>
+          <span class="t-mono note-count">{{ note.count }}</span>
+        </div>
+        <div class="note-label">{{ note.label }}</div>
+        <p class="note-text">{{ note.text }}</p>
+        <div class="note-xp t-mono">+{{ XP_RULES.evidence }} XP when the case is sealed</div>
+      </div>
+    </Transition>
+
+    <!-- Toast -->
+    <Transition name="toast">
+      <div v-if="toast" :key="toast.key" class="toast" :class="toast.tone">{{ toast.text }}</div>
+    </Transition>
+
+    <!-- Mobile controls -->
+    <template v-if="isTouch && !panelOpen">
+      <VirtualJoystick @move="onJoy" @stop="onJoy(0, 0)" />
+      <button class="action-btn" :class="{ ready: !!nearInfo }" :disabled="!nearInfo" @click="nearInfo && interact(nearInfo.id)">
+        {{ nearInfo ? nearInfo.verb : 'Use' }}
+      </button>
+    </template>
+
+    <!-- Case file -->
+    <InvestigationPanel
+      v-if="panelOpen && activeScenarioId"
+      :key="activeScenarioId"
+      :scenario-id="activeScenarioId"
+      @close="closePanel"
+      @solved="onSolved"
     />
 
-    <!-- ─── Investigation panel (overlay) ─── -->
-    <Transition name="panel-slide">
-      <InvestigationPanel
-        v-if="panelOpen && activeScenarioId"
-        :scenario-id="activeScenarioId"
-        @close="panelOpen = false"
-        @solved="onCaseSolved"
-      />
-    </Transition>
-
-    <!-- ─── Solved XP pop ─── -->
-    <Transition name="xp-pop">
-      <div v-if="showXP" class="xp-toast animate-xp-pop">
-        +{{ lastXP }} XP
-      </div>
-    </Transition>
-
-    <!-- ─── Case sealed stamp ─── -->
-    <Transition name="stamp-in">
-      <div v-if="showStamp" class="case-stamp animate-stamp">
-        CASE<br/>SEALED
-      </div>
-    </Transition>
-
-    <!-- ─── Mini-map (corner) ─── -->
-    <div class="mini-map">
-      <div class="mini-map-label">MAP</div>
-      <div class="mini-map-world">
-        <div v-for="t in terminals" :key="t.id"
-          class="mini-terminal"
-          :class="store.getCase(t.scenarioId)?.solved ? 'mini-solved' : 'mini-unsolved'"
-          :style="`left:${t.x/12}px; top:${t.y/12}px;`">
+    <!-- Briefing memo -->
+    <div v-if="briefingOpen" class="overlay" @mousedown.self="closeBriefing">
+      <article class="memo paper anim-rise">
+        <div class="t-label memo-k">Internal memo · PayVault security · 02:14</div>
+        <h1 class="t-display memo-title">Five rooms tripped the alarm tonight.</h1>
+        <p>
+          Intrusion detection flagged five systems on the 14th floor. Each breached room has its
+          lights cut, a <b>case terminal</b> and evidence left behind by the people who built the system.
+        </p>
+        <ol class="memo-steps">
+          <li><b>Search the room.</b> Marked objects glint when you get close. Each one adds a clue to the case file.</li>
+          <li><b>Read the terminal.</b> It shows the endpoint, request and response under investigation.</li>
+          <li><b>File a STRIDE report.</b> Pick every category that applies and rate its severity. Wrong categories cost XP.</li>
+        </ol>
+        <p class="memo-small">The Briefing Room stays locked until all five cases are sealed. The STRIDE field manual is in the Training Room if you need a refresher.</p>
+        <div class="controls">
+          <div><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> or click to walk</div>
+          <div><span class="kbd">Shift</span> run</div>
+          <div><span class="kbd">E</span> interact</div>
+          <div><span class="kbd">M</span> sound</div>
+          <div><span class="kbd">Esc</span> menu</div>
         </div>
-        <div class="mini-player"
-          :style="`left:${playerX/12}px; top:${playerY/12}px; background:${store.playerColor};`">
-        </div>
-      </div>
+        <button class="btn btn-ink memo-btn" @click="closeBriefing">
+          {{ store.briefingSeen ? 'Back to work' : 'Start the shift' }}
+        </button>
+      </article>
     </div>
 
-    <!-- Controls hint (bottom left) -->
-    <div class="controls-hint">
-      <span class="key-sm">W A S D</span> or <span class="key-sm">↑ ← ↓ →</span> to move &nbsp;·&nbsp;
-      <span class="key-sm">E</span> to interact
+    <!-- Pause menu -->
+    <div v-if="menuOpen" class="overlay" @mousedown.self="menuOpen = false">
+      <div class="menu anim-rise">
+        <div class="t-label menu-k">Paused</div>
+        <button class="menu-item" @click="menuOpen = false"><IconPlayerPlay :size="18" /> Resume</button>
+        <button class="menu-item" @click="menuOpen = false; briefingOpen = true"><IconNotes :size="18" /> Mission memo</button>
+        <button class="menu-item" @click="goLearn"><IconBook2 :size="18" /> STRIDE field manual</button>
+        <button class="menu-item" @click="toggleSound">
+          <IconVolumeOff v-if="muted" :size="18" /><IconVolume v-else :size="18" />
+          Sound: {{ muted ? 'off' : 'on' }}
+        </button>
+        <button v-if="store.allSolved" class="menu-item" @click="router.push('/debrief')"><IconReportAnalytics :size="18" /> Debrief</button>
+        <button class="menu-item dim" @click="router.push('/')"><IconLogout :size="18" /> Title screen</button>
+        <p class="menu-foot">Progress is saved automatically.</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  IconNavigationFilled, IconPlayerPlay, IconNotes, IconBook2, IconVolume, IconVolumeOff,
+  IconReportAnalytics, IconLogout,
+} from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { scenarios } from '@/data'
+import {
+  WORLD_W, WORLD_H, TILE, rooms, roomById, doors, interactables, roomAt, SPAWN,
+  type Interactable,
+} from '@/game/world'
+import { move, blocked, findPath, setLocks } from '@/game/physics'
+import { Renderer, STATUS_COLOR, type CaseStatus } from '@/game/renderer'
+import type { Facing } from '@/game/sprites'
+import { sfx, unlockAudio, isMuted, setMuted, startAmbience, stopAmbience } from '@/game/audio'
+import { XP_RULES } from '@/game/stride'
 import GameHUD from '@/components/GameHUD.vue'
-import PlayerCharacter from '@/components/PlayerCharacter.vue'
-import TerminalNode from '@/components/TerminalNode.vue'
 import VirtualJoystick from '@/components/VirtualJoystick.vue'
 import InvestigationPanel from '@/components/InvestigationPanel.vue'
 
 const router = useRouter()
 const store  = useGameStore()
-store.load()
 
-// Guard
-if (!store.gameStarted) router.replace('/')
+const canvasEl = ref<HTMLCanvasElement | null>(null)
+const miniEl   = ref<HTMLCanvasElement | null>(null)
+let renderer: Renderer | null = null
 
-// Map dimensions
-const MAP_W = 1200
-const MAP_H = 1100
+// ── UI state ──
+const panelOpen        = ref(false)
+const activeScenarioId = ref<string | null>(null)
+const menuOpen         = ref(false)
+const briefingOpen     = ref(!store.briefingSeen)
+const muted            = ref(isMuted())
+const isTouch          = ref(false)
+const nearId           = ref<string | null>(null)
+const banner = shallowRef<{ title: string; sub: string; tone: string } | null>(null)
+const note   = shallowRef<{ key: number; room: string; label: string; text: string; count: string } | null>(null)
+const toast  = shallowRef<{ key: number; text: string; tone: string } | null>(null)
+const objective = ref({ kicker: '', text: '', angle: 0 })
 
-// Terminal positions
-const terminals = [
-  { id: 'T1', scenarioId: 'SC-001', x: 120,  y: 100,  label: 'TX-API',   code: 'SC-001' },
-  { id: 'T2', scenarioId: 'SC-002', x: 520,  y: 100,  label: 'AUTH-SRV', code: 'SC-002' },
-  { id: 'T3', scenarioId: 'SC-003', x: 920,  y: 100,  label: 'FIN-CORE', code: 'SC-003' },
-  { id: 'T4', scenarioId: 'SC-004', x: 220,  y: 500,  label: 'ADMIN-01', code: 'SC-004' },
-  { id: 'T5', scenarioId: 'SC-005', x: 660,  y: 500,  label: 'STORE-FS', code: 'SC-005' },
-]
+const paused = computed(() => panelOpen.value || menuOpen.value || briefingOpen.value)
 
-const INTERACT_RANGE = 80
-const SPEED = 3
+// ── Simulation state (plain, not reactive) ──
+const start = (() => {
+  const lp = store.lastPos
+  if (lp && !blocked(lp.x, lp.y)) return lp
+  return SPAWN
+})()
+let px = start.x, py = start.y
+let vx = 0, vy = 0
+let facing: Facing = 'down'
+let phase = 0
+let lightAngle = Math.PI / 2
+let path: { x: number; y: number }[] | null = null
+let pendingInteract: string | null = null
+let target: { x: number; y: number; age: number } | null = null
+let joy = { x: 0, y: 0 }
+let mouse: { x: number; y: number; t: number } | null = null
+let camX = 0, camY = 0
+let time = 0
+let lastStepIdx = 0
+let currentRoom: string | null = null
+let alarmTimer = 0
+let lockNoticeAt = -10
+const keys = new Set<string>()
+const doorOpen: Record<string, number> = {}
+const particles: { x: number; y: number; life: number; max: number }[] = []
+const flicker: Record<string, number> = {}
 
-// Player state
-const playerX = ref(580)
-const playerY = ref(700)
-const facing  = ref<'left'|'right'|'up'|'down'>('down')
-const isMoving = ref(false)
-
-// Camera
-const worldRef = ref<HTMLElement|null>(null)
-const camX = ref(0)
-const camY = ref(0)
-
-// Keys held
-const keys = ref<Record<string, boolean>>({})
-// Joystick state (mobile)
-const joyDx = ref(0)
-const joyDy = ref(0)
-
-// Panels
-const panelOpen = ref(false)
-const activeScenarioId = ref<string|null>(null)
-
-// XP/Stamp feedback
-const showXP   = ref(false)
-const showStamp = ref(false)
-const lastXP   = ref(0)
-
-const isMobile = ref(false)
-
-// Near detection
-const nearTerminalId = computed(() => {
-  for (const t of terminals) {
-    const cx = t.x + 40
-    const cy = t.y + 40
-    const dist = Math.hypot(playerX.value - cx, playerY.value - cy)
-    if (dist < INTERACT_RANGE) return t.id
-  }
-  return null
-})
-
-const nearScenarioCode = computed(() => {
-  if (!nearTerminalId.value) return ''
-  return terminals.find(t => t.id === nearTerminalId.value)?.code ?? ''
-})
-
-const nearLearnDesk = computed(() => {
-  const dist = Math.hypot(playerX.value - 100, playerY.value - 870)
-  return dist < INTERACT_RANGE
-})
-
-const nearDebriefDesk = computed(() => {
-  const dist = Math.hypot(playerX.value - 870, playerY.value - 870)
-  return dist < INTERACT_RANGE
-})
-
-// Game loop
-let animFrame = 0
-function gameLoop() {
-  if (!panelOpen.value) {
-    let dx = 0
-    let dy = 0
-
-    if (keys.value['w'] || keys.value['arrowup'])    dy -= SPEED
-    if (keys.value['s'] || keys.value['arrowdown'])  dy += SPEED
-    if (keys.value['a'] || keys.value['arrowleft'])  dx -= SPEED
-    if (keys.value['d'] || keys.value['arrowright']) dx += SPEED
-
-    // Joystick
-    if (Math.abs(joyDx.value) > 0.1 || Math.abs(joyDy.value) > 0.1) {
-      dx += joyDx.value * SPEED
-      dy += joyDy.value * SPEED
-    }
-
-    // Normalize diagonal
-    if (dx !== 0 && dy !== 0) {
-      dx *= 0.707
-      dy *= 0.707
-    }
-
-    if (dx !== 0 || dy !== 0) {
-      playerX.value = Math.max(20, Math.min(MAP_W - 20, playerX.value + dx))
-      playerY.value = Math.max(20, Math.min(MAP_H - 20, playerY.value + dy))
-      isMoving.value = true
-
-      if (Math.abs(dx) > Math.abs(dy)) facing.value = dx > 0 ? 'right' : 'left'
-      else facing.value = dy > 0 ? 'down' : 'up'
-    } else {
-      isMoving.value = false
-    }
-
-    // Camera follow
-    if (worldRef.value) {
-      const vw = worldRef.value.clientWidth
-      const vh = worldRef.value.clientHeight
-      const targetCamX = Math.min(0, Math.max(vw - MAP_W, vw / 2 - playerX.value))
-      const targetCamY = Math.min(0, Math.max(vh - MAP_H, vh / 2 - playerY.value))
-      camX.value += (targetCamX - camX.value) * 0.1
-      camY.value += (targetCamY - camY.value) * 0.1
-    }
-  }
-
-  animFrame = requestAnimationFrame(gameLoop)
+function caseStatus(id: string): CaseStatus {
+  const c = store.getCase(id)
+  return c?.solved ? 'solved' : c?.visited ? 'visited' : 'breach'
 }
 
-function onKey(e: KeyboardEvent) {
-  keys.value[e.key.toLowerCase()] = true
-  if (e.key === 'e' || e.key === 'E') {
-    if (nearTerminalId.value && !panelOpen.value) {
-      const t = terminals.find(t => t.id === nearTerminalId.value)
-      if (t) openCase(t.scenarioId)
-    } else if (nearLearnDesk.value) goLearn()
-    else if (nearDebriefDesk.value) goDebrief()
+function roomTargetPower(roomId: string) {
+  const r = roomById[roomId]
+  if (r.scenarioId) return caseStatus(r.scenarioId) === 'solved' ? 1 : 0
+  if (r.lockedUntilSolved) return store.allSolved ? 1 : 0
+  return 1
+}
+const roomPower: Record<string, number> = Object.fromEntries(rooms.map(r => [r.id, roomTargetPower(r.id)]))
+
+setLocks(store.allSolved)
+
+// ── Interactables ──
+
+function available(it: Interactable) {
+  if (it.kind === 'evidence') {
+    const c = store.getCase(it.scenarioId!)
+    return !!c && !c.solved && !c.evidenceFound.includes(it.detail!)
+  }
+  return true
+}
+
+const VERB: Record<Interactable['kind'], string> = {
+  terminal: 'Open case file', evidence: 'Examine', manual: 'Study', debrief: 'Start debrief', board: 'Read', flavor: 'Check',
+}
+const nearInfo = computed(() => {
+  const it = interactables.find(i => i.id === nearId.value)
+  if (!it) return null
+  let verb = VERB[it.kind]
+  if (it.kind === 'terminal' && store.getCase(it.scenarioId!)?.solved) verb = 'Review findings'
+  const label = it.kind === 'terminal'
+    ? `${scenarios.find(s => s.id === it.scenarioId)?.code} · ${scenarios.find(s => s.id === it.scenarioId)?.title}`
+    : it.label
+  return { id: it.id, verb, label }
+})
+
+function nearest(): string | null {
+  let best: string | null = null, bd = Infinity
+  for (const it of interactables) {
+    if (!available(it)) continue
+    const d = Math.hypot(it.x - px, it.y - py)
+    if (d < (it.range ?? 46) && d < bd) { bd = d; best = it.id }
+  }
+  return best
+}
+
+function interact(id: string) {
+  const it = interactables.find(i => i.id === id)
+  if (!it || paused.value) return
+  path = null; pendingInteract = null
+  switch (it.kind) {
+    case 'terminal':
+      store.visitCase(it.scenarioId!)
+      activeScenarioId.value = it.scenarioId!
+      panelOpen.value = true
+      keys.clear()
+      break
+    case 'evidence': {
+      if (!store.findEvidence(it.scenarioId!, it.detail!)) return
+      sfx.pickup()
+      const sc = scenarios.find(s => s.id === it.scenarioId)!
+      const c = store.getCase(sc.id)!
+      note.value = {
+        key: Date.now(),
+        room: rooms.find(r => r.scenarioId === sc.id)?.name ?? '',
+        label: it.label,
+        text: sc.details[it.detail!],
+        count: `${c.evidenceFound.length}/${sc.details.length}`,
+      }
+      clearTimeout(noteTimer)
+      noteTimer = window.setTimeout(() => { note.value = null }, 6500)
+      break
+    }
+    case 'manual': goLearn(); break
+    case 'debrief': router.push('/debrief'); break
+    case 'board': briefingOpen.value = true; sfx.paper(); break
+    case 'flavor': showToast(it.text ?? '', 'plain'); sfx.blip(); break
   }
 }
-function onKeyUp(e: KeyboardEvent) {
-  keys.value[e.key.toLowerCase()] = false
-}
-function onJoystickMove(dx: number, dy: number) {
-  joyDx.value = dx; joyDy.value = dy
-}
-function onJoystickStop() {
-  joyDx.value = 0; joyDy.value = 0
+
+let noteTimer = 0, toastTimer = 0, bannerTimer = 0
+function showToast(text: string, tone = 'plain', ms = 3200) {
+  toast.value = { key: Date.now(), text, tone }
+  clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => { toast.value = null }, ms)
 }
 
-function openCase(scenarioId: string) {
-  const c = store.getCase(scenarioId)
-  if (c?.solved) return // already solved; show brief result?
-  store.visitCase(scenarioId)
-  activeScenarioId.value = scenarioId
-  panelOpen.value = true
+// ── Panel lifecycle ──
+let pendingRestore: string | null = null
+function onSolved() {
+  const room = rooms.find(r => r.scenarioId === activeScenarioId.value)
+  pendingRestore = room?.id ?? null
 }
-
-function onCaseSolved(xp: number) {
+function closePanel() {
   panelOpen.value = false
-  lastXP.value    = xp
-  showStamp.value = true
-  setTimeout(() => { showStamp.value = false }, 1800)
-  setTimeout(() => { showXP.value = true }, 300)
-  setTimeout(() => { showXP.value = false }, 1800)
+  activeScenarioId.value = null
+  if (pendingRestore) {
+    const id = pendingRestore
+    pendingRestore = null
+    flicker[id] = time
+    sfx.restore()
+    const c = store.getCase(roomById[id].scenarioId!)
+    showToast(`${roomById[id].name} secured · +${c?.xpEarned ?? 0} XP`, 'good', 3600)
+    if (store.allSolved) {
+      setLocks(true)
+      flicker.briefing = time + 1.4
+      window.setTimeout(() => showToast('All five cases sealed. The Briefing Room is open.', 'good', 5000), 3800)
+    }
+  }
 }
 
-function goLearn() { router.push('/learn') }
-function goDebrief() { router.push('/debrief') }
+function closeBriefing() {
+  briefingOpen.value = false
+  if (!store.briefingSeen) store.markBriefingSeen()
+}
+
+function goLearn() {
+  store.setLastPos(px, py)
+  router.push('/learn')
+}
+
+function toggleSound() {
+  muted.value = !muted.value
+  setMuted(muted.value)
+}
+
+// ── Input ──
+function unlock() {
+  unlockAudio()
+  if (!muted.value) startAmbience()
+}
+
+function onKeyDown(e: KeyboardEvent) {
+  const tag = (e.target as HTMLElement)?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return
+  unlock()
+  const k = e.key.toLowerCase()
+  if (k === 'escape') {
+    if (briefingOpen.value) closeBriefing()
+    else if (!panelOpen.value) menuOpen.value = !menuOpen.value
+    return
+  }
+  if (k === 'm') { toggleSound(); return }
+  if (paused.value) return
+  if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) {
+    keys.add(k)
+    if (k !== 'shift') { path = null; pendingInteract = null; target = null }
+    e.preventDefault()
+  }
+  if ((k === 'e' || k === 'enter' || k === ' ') && nearId.value) {
+    e.preventDefault()
+    interact(nearId.value)
+  }
+}
+function onKeyUp(e: KeyboardEvent) { keys.delete(e.key.toLowerCase()) }
+function onBlur() { keys.clear() }
+
+function walkTo(wx: number, wy: number, interactId: string | null) {
+  const p = findPath(px, py, wx, wy)
+  if (!p) { sfx.denied(); return }
+  path = p
+  pendingInteract = interactId
+  const last = p[p.length - 1] ?? { x: px, y: py }
+  target = { x: last.x, y: last.y, age: 0 }
+}
+
+function onPointerDown(e: PointerEvent) {
+  if (paused.value || !renderer || e.button !== 0) return
+  const w = renderer.screenToWorld(e.offsetX, e.offsetY, camX, camY)
+  let hit: Interactable | null = null, hd = 30
+  for (const it of interactables) {
+    if (!available(it)) continue
+    const d = Math.hypot(it.x - w.x, it.y - w.y)
+    if (d < hd) { hd = d; hit = it }
+  }
+  if (hit && Math.hypot(hit.x - px, hit.y - py) < (hit.range ?? 46)) { interact(hit.id); return }
+  if (hit) walkTo(hit.x, hit.y, hit.id)
+  else walkTo(w.x, w.y, null)
+}
+
+function onPointerMove(e: PointerEvent) {
+  if (e.pointerType === 'mouse') mouse = { x: e.offsetX, y: e.offsetY, t: time }
+}
+
+function onMiniClick(e: PointerEvent) {
+  const el = miniEl.value!
+  const r = el.getBoundingClientRect()
+  walkTo(((e.clientX - r.left) / r.width) * WORLD_W, ((e.clientY - r.top) / r.height) * WORLD_H, null)
+}
+
+function onJoy(x: number, y: number) {
+  joy = { x, y }
+  if (x || y) { path = null; pendingInteract = null; target = null }
+}
+
+// ── Loop ──
+let raf = 0
+let last = 0
+let frame = 0
+
+function step(dt: number) {
+  time += dt
+
+  // input → desired velocity
+  let ix = 0, iy = 0
+  if (!paused.value) {
+    if (keys.has('a') || keys.has('arrowleft'))  ix -= 1
+    if (keys.has('d') || keys.has('arrowright')) ix += 1
+    if (keys.has('w') || keys.has('arrowup'))    iy -= 1
+    if (keys.has('s') || keys.has('arrowdown'))  iy += 1
+    ix += joy.x; iy += joy.y
+  }
+  let speed = keys.has('shift') ? 235 : 150
+  const mag = Math.hypot(ix, iy)
+  if (mag > 1) { ix /= mag; iy /= mag }
+  if (mag > 0.05) {
+    speed *= Math.min(1, mag)
+  } else if (path && path.length && !paused.value) {
+    const wp = path[0]
+    const dx = wp.x - px, dy = wp.y - py
+    const d = Math.hypot(dx, dy)
+    if (d < 5) {
+      path.shift()
+      if (!path.length) {
+        path = null
+        if (pendingInteract) {
+          const id = pendingInteract
+          pendingInteract = null
+          const it = interactables.find(i => i.id === id)
+          if (it && Math.hypot(it.x - px, it.y - py) < (it.range ?? 46) + 12) interact(id)
+        }
+      }
+    } else { ix = dx / d; iy = dy / d; speed = 165 }
+  }
+
+  const k = 1 - Math.exp(-dt * 14)
+  vx += (ix * speed - vx) * k
+  vy += (iy * speed - vy) * k
+  if (paused.value) { vx = 0; vy = 0 }
+
+  const before = { x: px, y: py }
+  const r = move(px, py, vx * dt, vy * dt)
+  px = r.x; py = r.y
+  const moved = Math.hypot(px - before.x, py - before.y)
+  // stuck against something while auto-walking? give up
+  if (path && moved < 0.02 * speed * dt && Math.hypot(ix, iy) > 0) { path = null; pendingInteract = null }
+
+  const moving = moved > 0.3
+  if (moving) {
+    phase += moved * 0.085
+    const sp = Math.hypot(vx, vy)
+    if (Math.abs(vx) > Math.abs(vy) * 1.1) facing = vx > 0 ? 'right' : 'left'
+    else if (sp > 5) facing = vy > 0 ? 'down' : 'up'
+    const idx = Math.floor(phase / Math.PI)
+    if (idx !== lastStepIdx) {
+      lastStepIdx = idx
+      const fl = roomAt(px, py)?.floor ?? 'corridor'
+      sfx.step(fl.startsWith('carpet') ? 'soft' : 'hard')
+      particles.push({ x: px + (idx % 2 ? 5 : -5), y: py, life: 0.45, max: 0.45 })
+    }
+  }
+
+  // flashlight aim: mouse if recently used, otherwise travel direction
+  let aim = lightAngle
+  if (mouse && time - mouse.t < 3 && renderer) {
+    const w = renderer.screenToWorld(mouse.x, mouse.y, camX, camY)
+    aim = Math.atan2(w.y - (py - 16), w.x - px)
+  } else if (moving) {
+    aim = Math.atan2(vy, vx)
+  }
+  let da = aim - lightAngle
+  while (da > Math.PI) da -= Math.PI * 2
+  while (da < -Math.PI) da += Math.PI * 2
+  lightAngle += da * (1 - Math.exp(-dt * 10))
+
+  // particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    particles[i].life -= dt
+    particles[i].y -= dt * 6
+    if (particles[i].life <= 0) particles.splice(i, 1)
+  }
+  if (target) { target.age += dt; if (!path && target.age > 0.6) target = null }
+
+  // doors
+  for (const d of doors) {
+    if (d.style !== 'slide') continue
+    const cx = (d.x + d.w / 2) * TILE, cy = (d.y + d.h / 2) * TILE
+    const dist = Math.hypot(px - cx, py - cy)
+    const locked = d.lock === 'allSolved' && !store.allSolved
+    const want = !locked && dist < 84 ? 1 : 0
+    const prev = doorOpen[d.id] ?? 0
+    const next = prev + (want - prev) * (1 - Math.exp(-dt * 9))
+    if (prev < 0.05 && next >= 0.05) sfx.door()
+    doorOpen[d.id] = next
+    if (locked && dist < 52 && time - lockNoticeAt > 4) {
+      lockNoticeAt = time
+      sfx.denied()
+      showToast(`Briefing Room locked. ${scenarios.length - store.solvedCount} case${scenarios.length - store.solvedCount === 1 ? '' : 's'} still open.`, 'warn')
+    }
+  }
+
+  // room lighting (with a fluorescent stutter when power comes back)
+  for (const room of rooms) {
+    const want = roomTargetPower(room.id)
+    const f = flicker[room.id]
+    if (f !== undefined && time >= f && time - f < 1.3) {
+      const tt = time - f
+      roomPower[room.id] = Math.sin(tt * 47) * Math.sin(tt * 13) > 0.1 ? Math.min(1, tt) : 0.05
+      continue
+    }
+    if (f !== undefined && time < f) continue
+    roomPower[room.id] += (want - roomPower[room.id]) * (1 - Math.exp(-dt * 4))
+  }
+
+  // room entry
+  const here = roomAt(px, py)
+  if (here && here.id !== currentRoom) {
+    currentRoom = here.id
+    store.visitRoom(here.id)
+    if (here.scenarioId) store.visitCase(here.scenarioId)
+    if (here.h > 3) showBanner(here.id)
+  }
+  if (here?.scenarioId && caseStatus(here.scenarioId) !== 'solved' && !paused.value) {
+    alarmTimer -= dt
+    if (alarmTimer <= 0) { sfx.alarm(); alarmTimer = 2.8 }
+  }
+
+  // nearest interactable
+  const n = paused.value ? null : nearest()
+  if (n !== nearId.value) nearId.value = n
+
+  // camera
+  if (renderer) {
+    const vw = renderer.viewW, vh = renderer.viewH
+    const tx = vw >= WORLD_W ? (WORLD_W - vw) / 2 : Math.max(0, Math.min(WORLD_W - vw, px - vw / 2))
+    const ty = vh >= WORLD_H ? (WORLD_H - vh) / 2 : Math.max(-56, Math.min(WORLD_H - vh + 40, py - 20 - vh / 2))
+    const ck = 1 - Math.exp(-dt * 7)
+    camX += (tx - camX) * ck
+    camY += (ty - camY) * ck
+  }
+
+  return moving
+}
+
+function showBanner(roomId: string) {
+  const r = roomById[roomId]
+  let sub = 'Night lighting'
+  let tone = 'plain'
+  if (r.scenarioId) {
+    const st = caseStatus(r.scenarioId)
+    const c = store.getCase(r.scenarioId)!
+    const total = scenarios.find(s => s.id === r.scenarioId)!.details.length
+    if (st === 'solved') { sub = 'Secured'; tone = 'good' }
+    else { sub = `Breach unresolved · evidence ${c.evidenceFound.length}/${total}`; tone = 'bad' }
+  } else if (r.lockedUntilSolved) {
+    sub = store.allSolved ? 'Debrief ready at the podium' : 'Locked'
+  } else if (r.id === 'training') sub = 'STRIDE field manual at the kiosk'
+  else if (r.id === 'lobby') sub = 'Case board on the east wall'
+  banner.value = { title: r.name, sub, tone }
+  clearTimeout(bannerTimer)
+  bannerTimer = window.setTimeout(() => { banner.value = null }, 2600)
+}
+
+function updateObjective() {
+  const here = currentRoom ? roomById[currentRoom] : null
+  let tx = px, ty = py
+  if (store.allSolved) {
+    const it = interactables.find(i => i.id === 'debrief')!
+    tx = it.x; ty = it.y
+    objective.value.kicker = 'All cases closed'
+    objective.value.text = 'Present your findings in the Briefing Room'
+  } else if (here?.scenarioId && caseStatus(here.scenarioId) !== 'solved') {
+    const sc = scenarios.find(s => s.id === here.scenarioId)!
+    const c = store.getCase(sc.id)!
+    const missing = interactables.filter(i => i.scenarioId === sc.id && i.kind === 'evidence' && !c.evidenceFound.includes(i.detail!))
+    if (missing.length) {
+      const m = missing.reduce((a, b) => Math.hypot(a.x - px, a.y - py) < Math.hypot(b.x - px, b.y - py) ? a : b)
+      tx = m.x; ty = m.y
+      objective.value.kicker = `${here.name} · evidence ${c.evidenceFound.length}/${sc.details.length}`
+      objective.value.text = 'Search for marked objects, then file at the terminal'
+    } else {
+      const term = interactables.find(i => i.id === `term-${sc.id}`)!
+      tx = term.x; ty = term.y
+      objective.value.kicker = `${here.name} · all evidence found`
+      objective.value.text = 'File your STRIDE report at the terminal'
+    }
+  } else {
+    const open = interactables.filter(i => i.kind === 'terminal' && caseStatus(i.scenarioId!) !== 'solved')
+    const t = open.reduce((a, b) => Math.hypot(a.x - px, a.y - py) < Math.hypot(b.x - px, b.y - py) ? a : b)
+    tx = t.x; ty = t.y
+    const room = rooms.find(r => r.scenarioId === t.scenarioId)!
+    objective.value.kicker = `${store.solvedCount}/${scenarios.length} cases closed`
+    objective.value.text = `Nearest breach: ${room.name}`
+  }
+  objective.value.angle = Math.atan2(ty - py, tx - px) + Math.PI / 4
+}
+
+// ── Minimap ──
+function drawMini() {
+  const c = miniEl.value
+  if (!c) return
+  const dpr = window.devicePixelRatio || 1
+  const W = c.clientWidth, H = c.clientHeight
+  if (c.width !== Math.round(W * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr) }
+  const g = c.getContext('2d')!
+  const k = (W / WORLD_W) * dpr
+  g.setTransform(1, 0, 0, 1, 0, 0)
+  g.clearRect(0, 0, c.width, c.height)
+  g.setTransform(k, 0, 0, k, 0, 0)
+  for (const r of rooms) {
+    const seen = store.visitedRooms.includes(r.id)
+    const x = r.x * TILE, y = r.y * TILE, w = r.w * TILE, h = r.h * TILE
+    g.fillStyle = seen ? '#3A414C' : '#1C2129'
+    g.fillRect(x, y, w, h)
+    if (r.scenarioId) {
+      g.strokeStyle = STATUS_COLOR[caseStatus(r.scenarioId)]
+      g.lineWidth = 14
+      g.strokeRect(x + 7, y + 7, w - 14, h - 14)
+    }
+  }
+  for (const d of doors) {
+    g.fillStyle = d.lock && !store.allSolved ? '#E0503A' : '#3A414C'
+    g.fillRect(d.x * TILE, d.y * TILE, d.w * TILE, d.h * TILE)
+  }
+  if (path && path.length) {
+    g.strokeStyle = 'rgba(240,232,210,0.6)'; g.lineWidth = 10
+    g.setLineDash([24, 18])
+    g.beginPath(); g.moveTo(px, py)
+    for (const p of path) g.lineTo(p.x, p.y)
+    g.stroke(); g.setLineDash([])
+  }
+  g.fillStyle = '#F2EDE2'
+  g.beginPath(); g.arc(px, py, 34, 0, Math.PI * 2); g.fill()
+  g.fillStyle = store.playerColor
+  g.beginPath(); g.arc(px, py, 22, 0, Math.PI * 2); g.fill()
+}
+
+function loop(now: number) {
+  const dt = Math.min(0.05, (now - (last || now)) / 1000)
+  last = now
+  const moving = step(dt)
+  frame++
+  if (frame % 15 === 0) updateObjective()
+  if (frame % 6 === 0) drawMini()
+
+  if (renderer) {
+    const caseStat: Record<string, CaseStatus> = {}
+    for (const s of scenarios) caseStat[s.id] = caseStatus(s.id)
+    const found = new Set<string>()
+    for (const it of interactables) {
+      if (it.kind === 'evidence' && store.getCase(it.scenarioId!)?.evidenceFound.includes(it.detail!)) found.add(it.id)
+    }
+    renderer.draw({
+      time, camX, camY,
+      player: { x: px, y: py, color: store.playerColor, facing, phase, moving, name: store.playerName, lightAngle },
+      doorOpen,
+      lockedDoors: new Set(store.allSolved ? [] : doors.filter(d => d.lock).map(d => d.id)),
+      roomPower,
+      caseStatus: caseStat,
+      foundEvidence: found,
+      nearId: nearId.value,
+      target,
+      particles,
+      allSolved: store.allSolved,
+    })
+  }
+  raf = requestAnimationFrame(loop)
+}
+
+function resize() {
+  if (!renderer || !canvasEl.value) return
+  const el = canvasEl.value
+  renderer.resize(el.clientWidth, el.clientHeight, Math.min(2, window.devicePixelRatio || 1))
+}
+
+function onVisibility() {
+  if (document.hidden) store.setLastPos(px, py)
+}
 
 onMounted(() => {
-  isMobile.value = window.matchMedia('(pointer: coarse)').matches
-  worldRef.value?.focus()
-  gameLoop()
+  isTouch.value = window.matchMedia('(pointer: coarse)').matches
+  renderer = new Renderer(canvasEl.value!)
+  resize()
+  // snap the camera onto the player on first frame
+  camX = Math.max(0, Math.min(WORLD_W - renderer.viewW, px - renderer.viewW / 2))
+  camY = Math.max(-56, Math.min(WORLD_H - renderer.viewH + 40, py - 20 - renderer.viewH / 2))
+  const startRoom = roomAt(px, py)
+  currentRoom = startRoom?.id ?? null
+  if (startRoom) store.visitRoom(startRoom.id)
+  if (startRoom?.scenarioId) store.visitCase(startRoom.scenarioId)
+  updateObjective()
+  window.addEventListener('resize', resize)
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', onBlur)
+  document.addEventListener('visibilitychange', onVisibility)
+  raf = requestAnimationFrame(loop)
 })
-onUnmounted(() => cancelAnimationFrame(animFrame))
+
+onUnmounted(() => {
+  cancelAnimationFrame(raf)
+  store.setLastPos(px, py)
+  stopAmbience()
+  window.removeEventListener('resize', resize)
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keyup', onKeyUp)
+  window.removeEventListener('blur', onBlur)
+  document.removeEventListener('visibilitychange', onVisibility)
+  clearTimeout(noteTimer); clearTimeout(toastTimer); clearTimeout(bannerTimer)
+})
 </script>
 
 <style scoped>
-.game-world {
+.world {
   position: fixed;
   inset: 0;
-  background: var(--game-bg);
   overflow: hidden;
-  outline: none;
-  cursor: none;
+  background: #06080B;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
-/* Restore cursor when the investigation panel is open */
-.game-world.panel-open {
-  cursor: default;
-}
-
-.scanline-layer {
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.08) 2px,
-    rgba(0,0,0,0.08) 4px
-  );
-  pointer-events: none;
-  z-index: 100;
+.view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 75% 70% at 50% 55%, transparent 55%, #000000A0 100%);
 }
 
-.map-container {
+/* Room banner */
+.banner {
   position: absolute;
-  inset: 0;
-  top: 56px; /* below HUD */
-  overflow: hidden;
-}
-
-.map-floor {
-  position: absolute;
-  width: 1200px;
-  height: 1100px;
-  background: #0A0A18;
-  will-change: transform;
-  transition: none;
-}
-
-.floor-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-
-/* Rooms */
-.room-wall {
-  position: absolute;
-  background: #0D0D20;
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 8px;
-}
-
-.corridor-h {
-  position: absolute;
-  left: 0; right: 0;
-  height: 1px;
-  background: rgba(255,255,255,0.05);
-}
-.corridor-v {
-  position: absolute;
-  top: 0; bottom: 0;
-  width: 1px;
-  background: rgba(255,255,255,0.05);
-}
-
-.room-label {
-  position: absolute;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.18);
-  font-family: 'JetBrains Mono', monospace;
-  pointer-events: none;
-}
-
-/* Desk nodes */
-.desk-node {
-  position: absolute;
-  width: 80px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.desk-node:hover {
-  border-color: rgba(255,255,255,0.25);
-  background: rgba(255,255,255,0.08);
-}
-.desk-near {
-  border-color: rgba(255,255,255,0.4) !important;
-  box-shadow: 0 0 20px rgba(255,255,255,0.08);
-}
-.desk-icon { font-size: 22px; }
-.desk-label {
-  font-size: 9px;
-  font-weight: 700;
-  text-align: center;
-  color: rgba(255,255,255,0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  line-height: 1.3;
-}
-.interact-hint {
-  font-size: 9px;
-  color: rgba(255,255,255,0.7);
-  font-family: 'JetBrains Mono', monospace;
-  margin-top: 2px;
-}
-
-/* Interact banner */
-.interact-banner {
-  position: fixed;
-  bottom: 100px;
+  top: 84px;
   left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 20;
+  text-shadow: 0 2px 12px #000;
+}
+.banner-title { font-size: 34px; color: var(--color-fog); }
+.banner-sub { margin-top: 6px; font-size: 13px; color: var(--color-fog-dim); }
+.banner-sub.bad { color: #F08A75; }
+.banner-sub.good { color: #7FD3A8; }
+.banner-enter-active { transition: opacity .35s, transform .35s; }
+.banner-leave-active { transition: opacity .6s; }
+.banner-enter-from { opacity: 0; transform: translate(-50%, -6px); }
+.banner-leave-to { opacity: 0; }
+
+/* Objective */
+.objective {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(360px, calc(100vw - 24px));
+  padding: 10px 14px 10px 10px;
+  background: #0B0E13E6;
+  border: 1px solid var(--color-ink-line);
+  border-radius: 4px;
+  z-index: 20;
+}
+.obj-compass {
+  display: grid; place-items: center;
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--color-ink-600);
+  color: #F0C674;
+  transition: transform .25s ease-out;
+}
+.obj-k { color: var(--color-fog-mute); }
+.obj-main { font-size: 14px; line-height: 1.35; margin-top: 2px; }
+
+/* Minimap */
+.minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 200px;
+  padding: 6px;
+  background: #0B0E13E6;
+  border: 1px solid var(--color-ink-line);
+  border-radius: 4px;
+  z-index: 20;
+}
+.minimap canvas { display: block; width: 100%; aspect-ratio: 1600 / 1216; cursor: pointer; }
+
+/* Prompt */
+.prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 20px;
-  border-radius: 999px;
-  background: rgba(13,13,30,0.92);
-  border: 1px solid rgba(255,255,255,0.18);
-  backdrop-filter: blur(12px);
-  color: rgba(232,232,255,0.9);
-  font-size: 13px;
+  max-width: calc(100vw - 32px);
+  height: 44px;
+  padding: 0 16px 0 10px;
+  background: var(--color-fog);
+  color: var(--color-ink-950);
+  border: 0;
+  border-radius: 4px;
   font-weight: 600;
-  z-index: 50;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  font-size: 14px;
+  box-shadow: 0 8px 30px #0009;
+  cursor: pointer;
+  z-index: 25;
 }
-.key-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.2);
-  font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  color: white;
-}
-.case-badge {
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: rgba(232,69,60,0.2);
-  border: 1px solid rgba(232,69,60,0.4);
-  color: #E8453C;
-}
+.prompt .kbd { background: var(--color-ink-950); color: var(--color-fog); border-color: var(--color-ink-950); }
+.prompt-obj { font-weight: 400; color: #4A453C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prompt-enter-active, .prompt-leave-active { transition: opacity .15s, transform .15s; }
+.prompt-enter-from, .prompt-leave-to { opacity: 0; transform: translate(-50%, 6px); }
 
-/* Mini-map */
-.mini-map {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 100px;
-  height: 92px;
-  border-radius: 8px;
-  background: rgba(8,8,18,0.85);
-  border: 1px solid rgba(255,255,255,0.12);
-  backdrop-filter: blur(8px);
-  overflow: hidden;
-  z-index: 40;
-}
-.mini-map-label {
+/* Evidence note */
+.note {
   position: absolute;
-  top: 4px;
-  left: 6px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.3);
-  font-family: 'JetBrains Mono', monospace;
-}
-.mini-map-world {
-  position: absolute;
-  inset: 16px 4px 4px;
-}
-.mini-terminal {
-  position: absolute;
-  width: 5px;
-  height: 5px;
+  right: 16px;
+  top: 76px;
+  width: min(340px, calc(100vw - 32px));
+  padding: 14px 16px 12px;
   border-radius: 2px;
-  transform: translate(-50%, -50%);
+  box-shadow: 0 12px 40px #000A;
+  transform: rotate(0.6deg);
+  z-index: 30;
 }
-.mini-unsolved { background: #E8453C; box-shadow: 0 0 4px #E8453C; }
-.mini-solved   { background: #12A67A; box-shadow: 0 0 4px #12A67A; }
-.mini-player {
+.note-head { display: flex; justify-content: space-between; color: var(--color-pen-3); }
+.note-count { font-size: 12px; }
+.note-label { font-weight: 700; font-size: 15px; margin-top: 8px; }
+.note-text { margin: 6px 0 10px; font-size: 14px; line-height: 1.5; }
+.note-xp { font-size: 11px; color: #2F7D57; }
+.note-enter-active { transition: opacity .25s, transform .3s cubic-bezier(.2,.8,.2,1.2); }
+.note-leave-active { transition: opacity .3s, transform .3s; }
+.note-enter-from { opacity: 0; transform: translateX(30px) rotate(3deg); }
+.note-leave-to { opacity: 0; transform: translateX(20px) rotate(0.6deg); }
+
+/* Toast */
+.toast {
   position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 6px currentColor;
-  z-index: 2;
-}
-
-/* XP toast */
-.xp-toast {
-  position: fixed;
-  top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 2.5rem;
-  font-weight: 900;
-  color: #12A67A;
-  text-shadow: 0 0 20px #12A67A88;
-  pointer-events: none;
-  z-index: 200;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-/* Case stamp */
-.case-stamp {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-4deg);
-  font-size: 2rem;
-  font-weight: 900;
-  color: #12A67A;
-  border: 4px solid #12A67A;
-  padding: 12px 24px;
-  border-radius: 8px;
-  text-align: center;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  pointer-events: none;
-  z-index: 200;
-  font-family: 'JetBrains Mono', monospace;
-  box-shadow: 0 0 30px #12A67A44;
-}
-
-/* Controls hint */
-.controls-hint {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
+  top: 72px;
   transform: translateX(-50%);
-  font-size: 11px;
-  color: rgba(255,255,255,0.22);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  z-index: 40;
-  white-space: nowrap;
-}
-.key-sm {
-  display: inline-flex;
-  padding: 1px 5px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
   border-radius: 4px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  background: #11151CF2;
+  border: 1px solid var(--color-ink-600);
+  font-size: 14px;
+  z-index: 32;
+  text-align: center;
 }
+.toast.good { border-color: #3D9A6C; color: #BFE8D0; }
+.toast.warn { border-color: #D9432F; color: #F5C1B6; }
+.toast-enter-active, .toast-leave-active { transition: opacity .2s, transform .2s; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -6px); }
 
-/* Transitions */
-.slide-prompt-enter-active, .slide-prompt-leave-active { transition: all 0.25s ease; }
-.slide-prompt-enter-from, .slide-prompt-leave-to { opacity: 0; transform: translateX(-50%) translateY(12px); }
-
-.panel-slide-enter-active { transition: all 0.3s cubic-bezier(0.34,1.2,0.64,1); }
-.panel-slide-leave-active { transition: all 0.2s ease; }
-.panel-slide-enter-from { opacity: 0; transform: scale(0.94) translateY(12px); }
-.panel-slide-leave-to   { opacity: 0; transform: scale(0.96) translateY(8px); }
-
-.xp-pop-enter-active { transition: none; }
-.xp-pop-leave-active { transition: none; }
-
-.stamp-in-enter-active { transition: none; }
-.stamp-in-leave-active { transition: all 0.3s ease; }
-.stamp-in-leave-to { opacity: 0; transform: translate(-50%, -50%) rotate(-4deg) scale(0.8); }
-
-.fade-scale-enter-active { animation: bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1); }
-.fade-scale-leave-active { transition: all 0.2s ease; }
-.fade-scale-leave-to { opacity: 0; transform: scale(0.8); }
-
-/* ════════════════════════════════════════════════
-   MAP DECORATION ELEMENTS
-   ════════════════════════════════════════════════ */
-
-/* Room tints */
-.room-wall { position: absolute; }
-.room-server  { background: #0D0D1E; border: 1px solid rgba(18,166,122,0.12); border-radius: 8px; }
-.room-auth    { background: #0D0D1E; border: 1px solid rgba(34,118,210,0.12); border-radius: 8px; }
-.room-finance { background: #0D0D1E; border: 1px solid rgba(232,150,10,0.12); border-radius: 8px; }
-.room-admin   { background: #0D0D1E; border: 1px solid rgba(114,65,224,0.12); border-radius: 8px; }
-.room-archive { background: #0D0D1E; border: 1px solid rgba(82,168,130,0.12); border-radius: 8px; }
-.room-learn   { background: #0D0D1E; border: 1px solid rgba(232,150,10,0.10); border-radius: 8px; }
-.room-debrief { background: #0D0D1E; border: 1px solid rgba(232,150,10,0.12); border-radius: 8px; }
-
-/* Neon corridor lines */
-.neon-h {
+/* Mobile */
+.action-btn {
   position: absolute;
-  left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg,
-    transparent 4%,
-    rgba(114,65,224,0.35) 30%,
-    rgba(34,118,210,0.35) 70%,
-    transparent 96%);
-  pointer-events: none;
-}
-.neon-v {
-  position: absolute;
-  top: 0; bottom: 0;
-  width: 2px;
-  background: linear-gradient(180deg,
-    transparent 4%,
-    rgba(34,118,210,0.3) 30%,
-    rgba(114,65,224,0.3) 70%,
-    transparent 96%);
-  pointer-events: none;
-}
-
-/* Intersection glow dots */
-.junction-dot {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
+  right: 20px;
+  bottom: calc(120px + env(safe-area-inset-bottom));
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
-  background: rgba(114,65,224,0.6);
-  box-shadow: 0 0 16px 4px rgba(114,65,224,0.35);
-  animation: juncPulse 2s ease-in-out infinite;
-  pointer-events: none;
+  border: 1px solid var(--color-ink-600);
+  background: #0B0E13CC;
+  color: var(--color-fog-dim);
+  font-weight: 600;
+  font-size: 13px;
+  z-index: 26;
 }
-@keyframes juncPulse {
-  0%,100% { opacity: 0.6; transform: translate(-50%,-50%) scale(1); }
-  50%      { opacity: 1;   transform: translate(-50%,-50%) scale(1.4); }
-}
+.action-btn.ready { background: var(--color-fog); color: var(--color-ink-950); border-color: var(--color-fog); }
 
-/* Floor arrows */
-.floor-arrow {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: 11px;
-  color: rgba(255,255,255,0.1);
-  font-family: monospace;
-  pointer-events: none;
-  animation: arrowFade 2.5s ease-in-out infinite;
-}
-@keyframes arrowFade {
-  0%,100% { opacity: 0.15; }
-  50%     { opacity: 0.4; }
-}
-
-/* Ambient room glow blobs */
-.room-glow {
-  position: absolute;
-  pointer-events: none;
-  border-radius: 50%;
-}
-
-/* Warning tape */
-.warn-tape {
-  position: absolute;
-  height: 10px;
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(232,150,10,0.55), rgba(232,150,10,0.55) 6px,
-    rgba(8,8,24,0.4) 6px, rgba(8,8,24,0.4) 12px
-  );
-  border-radius: 2px;
-  pointer-events: none;
-}
-
-/* ── SERVER RACKS ── */
-.s-rack {
-  position: absolute;
-  width: 50px;
-  background: #0A0A18;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 4px;
-  overflow: hidden;
-  box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
-}
-.s-rack-unit {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 4px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  animation: rackPulse 1.5s ease-in-out infinite;
-}
-.s-rack-led {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.led-green  { background:#12A67A; box-shadow:0 0 4px #12A67A; }
-.led-red    { background:#E8453C; box-shadow:0 0 4px #E8453C; animation: ledBlink 0.8s step-end infinite; }
-.led-orange { background:#E8960A; box-shadow:0 0 4px #E8960A; animation: ledBlink 1.2s step-end infinite; }
-.led-blue   { background:#2276D2; box-shadow:0 0 4px #2276D2; }
-@keyframes rackPulse {
-  0%,100% { opacity: 0.8; }
-  50%     { opacity: 1; }
-}
-@keyframes ledBlink {
-  0%,49% { opacity: 1; }
-  50%,100% { opacity: 0.15; }
-}
-.s-rack-bar {
-  height: 3px;
-  flex: 1;
-  border-radius: 1px;
-  background: rgba(255,255,255,0.12);
-}
-.s-rack-bar.short { flex: 0.6; }
-
-/* Cooling vent grill */
-.vent-grill {
-  position: absolute;
-  width: 36px;
-  height: 16px;
-  background: repeating-linear-gradient(
-    90deg,
-    rgba(255,255,255,0.08) 0px, rgba(255,255,255,0.08) 3px,
-    transparent 3px, transparent 6px
-  );
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 3px;
-  pointer-events: none;
-}
-
-/* Security camera */
-.sec-cam {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  pointer-events: none;
-}
-.cam-b {
-  width: 14px;
-  height: 8px;
-  background: #1a1a2e;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 3px 0 0 3px;
-}
-.cam-l {
-  width: 10px;
-  height: 6px;
-  background: #0A0A18;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 0 2px 2px 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.cam-eye {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #E8453C;
-  box-shadow: 0 0 5px #E8453C;
-  animation: camBlink 2.5s ease-in-out infinite;
-}
-@keyframes camBlink {
-  0%,85%,100% { opacity: 1; }
-  90% { opacity: 0; }
-}
-
-/* ── MONITORS ── */
-.monitor-obj {
-  position: absolute;
-  width: 60px;
-  height: 38px;
-  background: #080818;
-  border: 1.5px solid rgba(255,255,255,0.15);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-.mon-screen {
-  width: 52px;
-  height: 30px;
-  border-radius: 2px;
-  position: relative;
-  overflow: hidden;
-}
-.blue-screen {
-  background: linear-gradient(135deg, #0a1a3a 0%, #0d2060 100%);
-}
-.blue-screen::after {
-  content: '';
-  position: absolute;
+/* Overlays */
+.overlay {
+  position: fixed;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 3px,
-    rgba(34,118,210,0.15) 3px, rgba(34,118,210,0.15) 4px
-  );
-}
-.blink-screen { animation: screenBlink 3s ease-in-out infinite; }
-@keyframes screenBlink {
-  0%,80%,100% { opacity: 1; }
-  85% { opacity: 0.3; }
-}
-
-/* Work desk */
-.work-desk {
-  position: absolute;
-  background: #16162A;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 3px;
-  pointer-events: none;
-}
-
-/* Chair */
-.chair-obj {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: #1e1e32;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 50% 50% 30% 30%;
-  pointer-events: none;
-}
-.debrief-chair { border-color: rgba(232,150,10,0.2); }
-
-/* Keypad panel */
-.keypad-panel {
-  position: absolute;
-  width: 26px;
-  background: #0D0D1E;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 4px;
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  pointer-events: none;
-}
-.kp-status {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin: 0 auto;
-}
-.kp-grid {
+  z-index: 70;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
+  place-items: center;
+  padding: 16px;
+  background: #05070AB3;
+  overflow-y: auto;
 }
-.kp-btn {
-  width: 5px;
-  height: 5px;
-  border-radius: 1px;
-  background: rgba(255,255,255,0.12);
-}
-
-/* Biometric scanner */
-.bio-scanner {
-  position: absolute;
-  width: 80px;
-  height: 22px;
-  background: #0A0A18;
-  border: 1px solid rgba(34,118,210,0.4);
-  border-radius: 4px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  pointer-events: none;
-}
-.bio-beam {
-  width: 70px;
-  height: 2px;
-  background: rgba(34,118,210,0.6);
-  border-radius: 1px;
-  animation: bioScan 1.6s ease-in-out infinite;
-}
-@keyframes bioScan {
-  0%,100% { transform: translateY(-4px); opacity: 0.3; }
-  50%     { transform: translateY(4px);  opacity: 1; }
-}
-.bio-text {
-  font-size: 6px;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  color: rgba(34,118,210,0.6);
-  letter-spacing: 0.06em;
-}
-
-/* ── VAULT DOOR ── */
-.vault-door-obj {
-  position: absolute;
-  pointer-events: none;
-}
-.vd-outer {
-  width: 100px;
-  height: 160px;
-  background: #1a1428;
-  border: 3px solid rgba(232,150,10,0.4);
-  border-radius: 6px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 20px rgba(232,150,10,0.08), inset 0 0 12px rgba(0,0,0,0.5);
-}
-.vd-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 2px solid rgba(232,150,10,0.35);
-}
-.vd-r1 { width: 70px;  height: 70px; }
-.vd-r2 { width: 44px;  height: 44px; border-color: rgba(232,150,10,0.5); }
-.vd-handle {
-  position: absolute;
-  width: 30px;
-  height: 6px;
-  background: rgba(232,150,10,0.5);
-  border-radius: 3px;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%) rotate(-35deg);
-}
-.vd-led {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  animation: ledBlink 1.5s step-end infinite;
-}
-
-/* Safe boxes */
-.safe-obj {
-  position: absolute;
-  width: 38px;
-  height: 32px;
-  background: #1a1428;
-  border: 1px solid rgba(232,150,10,0.3);
-  border-radius: 4px;
-  pointer-events: none;
-}
-.safe-obj::after {
-  content: '';
-  position: absolute;
-  top: 50%; left: 4px;
-  transform: translateY(-50%);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1px solid rgba(232,150,10,0.4);
-}
-
-/* ── MEETING TABLE ── */
-.meeting-table {
-  position: absolute;
-  width: 100px;
-  height: 60px;
-  background: #18182e;
-  border: 1px solid rgba(114,65,224,0.25);
-  border-radius: 30px;
-  pointer-events: none;
-}
-.mt-chair {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  background: #1e1e32;
-  border: 1px solid rgba(114,65,224,0.2);
-  border-radius: 50% 50% 30% 30%;
-}
-
-/* Filing cabinet */
-.cabinet-obj {
-  position: absolute;
-  width: 22px;
-  height: 50px;
-  background: #14142A;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 3px;
-  pointer-events: none;
-}
-.cabinet-obj::before,
-.cabinet-obj::after {
-  content: '';
-  position: absolute;
-  left: 2px; right: 2px;
-  height: 1px;
-  background: rgba(255,255,255,0.08);
-}
-.cabinet-obj::before { top: 33%; }
-.cabinet-obj::after  { top: 66%; }
-
-/* Wall monitor */
-.wall-mon {
-  position: absolute;
-  width: 70px;
-  height: 46px;
-  background: #08080E;
-  border: 1.5px solid rgba(255,255,255,0.12);
-  border-radius: 4px;
-  overflow: hidden;
-  pointer-events: none;
-}
-.wm-screen { width: 100%; height: 100%; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
-.purple-screen { background: #0d0820; }
-.wm-line {
-  height: 3px;
-  background: rgba(114,65,224,0.4);
-  border-radius: 1.5px;
-  animation: wmFlick 1.8s ease-in-out infinite;
-}
-.wm-line:nth-child(1) { width: 80%; animation-delay: 0s; }
-.wm-line:nth-child(2) { width: 60%; animation-delay: 0.3s; }
-.wm-line:nth-child(3) { width: 90%; animation-delay: 0.6s; }
-.wm-line:nth-child(4) { width: 50%; animation-delay: 0.9s; }
-@keyframes wmFlick {
-  0%,100% { opacity: 0.4; }
-  50%     { opacity: 0.8; }
-}
-
-/* Plant */
-.plant-obj {
-  position: absolute;
-  font-size: 20px;
-  pointer-events: none;
-  filter: drop-shadow(0 4px 8px rgba(18,166,122,0.25));
-}
-
-/* ── SHELF UNITS ── */
-.shelf-unit {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  pointer-events: none;
-}
-.shelf-row {
-  display: flex;
-  gap: 3px;
-  padding: 3px 4px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 3px;
-}
-.s-box {
-  width: 22px;
-  height: 26px;
+.memo {
+  width: min(600px, 100%);
+  padding: 28px 32px 28px;
   border-radius: 2px;
-  border: 1px solid;
+  box-shadow: 0 30px 80px #000A;
 }
+.memo-k { color: var(--color-pen-3); }
+.memo-title { font-size: clamp(28px, 5vw, 40px); margin: 10px 0 14px; }
+.memo p { font-size: 15px; line-height: 1.6; margin: 0 0 12px; }
+.memo-steps { list-style: decimal; margin: 0 0 14px; padding-left: 20px; display: grid; gap: 8px; font-size: 15px; line-height: 1.5; }
+.memo-small { font-size: 13px !important; color: var(--color-pen-3); }
+.controls {
+  display: flex; flex-wrap: wrap; gap: 8px 18px;
+  padding: 12px 0 0;
+  margin-top: 4px;
+  border-top: 1px dashed var(--color-paper-line);
+  font-size: 13px;
+  color: var(--color-pen-2);
+}
+.controls > div { display: flex; align-items: center; gap: 4px; }
+.memo-btn { margin-top: 20px; width: 100%; height: 46px; font-size: 15px; }
 
-/* Crates */
-.crate-obj {
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  background: #1A1428;
-  border: 1px solid rgba(255,150,10,0.25);
+.menu {
+  width: min(320px, 100%);
+  padding: 16px;
+  background: var(--color-ink-900);
+  border: 1px solid var(--color-ink-line);
   border-radius: 4px;
-  pointer-events: none;
-}
-.crate-obj::after {
-  content: '';
-  position: absolute;
-  top: 50%; left: 0; right: 0;
-  height: 1px;
-  background: rgba(255,150,10,0.15);
-}
-.small-crate { width: 20px; height: 20px; }
-
-/* ── BOOKSHELF ── */
-.book-shelf {
-  position: absolute;
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  padding: 4px;
-  background: #14142A;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 4px;
-  pointer-events: none;
-}
-.book {
-  width: 10px;
-  border-radius: 1px 1px 0 0;
-  border: 1px solid;
-  min-height: 24px;
-}
-
-/* Desk lamp */
-.desk-lamp-obj {
-  position: absolute;
-  pointer-events: none;
-}
-.lamp-arm {
-  width: 2px;
-  height: 20px;
-  background: rgba(232,150,10,0.5);
-  border-radius: 1px;
-  transform: rotate(-15deg);
-  transform-origin: bottom;
-  margin-left: 6px;
-}
-.lamp-shade {
-  width: 14px;
-  height: 8px;
-  background: rgba(232,150,10,0.3);
-  border: 1px solid rgba(232,150,10,0.5);
-  border-radius: 0 0 7px 7px;
-  margin-top: -4px;
-}
-.lamp-glow-spot {
-  width: 40px;
-  height: 20px;
-  background: radial-gradient(ellipse, rgba(232,150,10,0.25) 0%, transparent 70%);
-  margin-top: 2px;
-  margin-left: -13px;
-  pointer-events: none;
-}
-
-/* ── PRESENTATION SCREEN ── */
-.pres-screen {
-  position: absolute;
-  width: 72px;
-  height: 52px;
-  background: #050510;
-  border: 2px solid rgba(34,118,210,0.3);
-  border-radius: 4px;
-  overflow: hidden;
-  pointer-events: none;
-}
-.ps-content {
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  height: 100%;
-  justify-content: center;
-}
-.ps-line {
-  height: 3px;
-  border-radius: 1.5px;
-  transition: width 0.5s ease, background 0.5s ease;
-  animation: psAnim 2s ease-in-out infinite;
-}
-@keyframes psAnim {
-  0%,100% { opacity: 0.5; }
-  50%     { opacity: 1; }
-}
-
-/* Trophy stand */
-.trophy-stand {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  box-shadow: 0 30px 80px #000A;
+  display: grid;
   gap: 2px;
-  pointer-events: none;
 }
-.trophy-emoji {
-  font-size: 22px;
-  filter: grayscale(0.7);
-  transition: all 0.5s ease;
+.menu-k { color: var(--color-fog-mute); padding: 4px 8px 10px; }
+.menu-item {
+  display: flex; align-items: center; gap: 12px;
+  height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  text-align: left;
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--color-fog);
 }
-.trophy-lit {
-  filter: grayscale(0) drop-shadow(0 0 10px rgba(232,150,10,0.7));
-  animation: trophyGlow 2s ease-in-out infinite;
-}
-@keyframes trophyGlow {
-  0%,100% { filter: grayscale(0) drop-shadow(0 0 8px rgba(232,150,10,0.6)); }
-  50%     { filter: grayscale(0) drop-shadow(0 0 18px rgba(232,150,10,0.9)); }
-}
-.trophy-plinth {
-  width: 28px;
-  height: 8px;
-  background: rgba(232,150,10,0.25);
-  border: 1px solid rgba(232,150,10,0.4);
-  border-radius: 2px;
-}
+.menu-item:hover { background: var(--color-ink-800); }
+.menu-item.dim { color: var(--color-fog-dim); }
+.menu-foot { margin: 10px 8px 2px; font-size: 12px; color: var(--color-fog-mute); }
 
-/* Object label */
-.obj-label {
-  position: absolute;
-  font-size: 7px;
-  font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  color: rgba(255,255,255,0.2);
-  letter-spacing: 0.06em;
-  pointer-events: none;
-  white-space: nowrap;
+@media (max-width: 640px) {
+  .minimap { width: 132px; top: 64px; bottom: auto; }
+  .objective { bottom: auto; top: 64px; right: 156px; left: 8px; padding: 8px; gap: 8px; }
+  .obj-main { font-size: 12.5px; }
+  .obj-k { font-size: 10px; }
+  .banner { top: 150px; }
+  .banner-title { font-size: 26px; }
+  .prompt { bottom: calc(220px + env(safe-area-inset-bottom)); }
+  .note { top: auto; bottom: calc(220px + env(safe-area-inset-bottom)); }
 }
-.caution-label {
-  color: rgba(232,150,10,0.45);
-}
-.chair-row { position: absolute; }
 </style>

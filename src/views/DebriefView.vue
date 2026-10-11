@@ -1,226 +1,133 @@
 <template>
-  <div class="debrief-bg min-h-screen">
-    <div class="scanline-layer" aria-hidden="true"></div>
+  <div class="page">
+    <nav class="topbar">
+      <button class="back" @click="router.push('/game')"><IconArrowLeft :size="18" /> Back to the floor</button>
+      <button class="back" @click="confirmReset = true"><IconRefresh :size="17" /> New shift</button>
+    </nav>
 
-    <!-- Header -->
-    <div class="debrief-header">
-      <button class="back-btn" @click="router.push('/game')">← Back to Map</button>
-      <div class="header-title">Mission Debrief</div>
-      <button class="reset-btn" @click="confirmReset = true">↺ New Game</button>
-    </div>
-
-    <div class="debrief-content">
-
-      <!-- ─── Hero Score ─── -->
-      <div class="score-hero animate-fade-up">
-        <!-- Player character display -->
-        <div class="hero-char-wrap">
-          <div class="hero-char" :style="`background: ${store.playerColor};`">
-            <div class="hero-visor"></div>
-          </div>
-          <div class="hero-glow" :style="`background: ${store.playerColor};`"></div>
-        </div>
-
-        <div class="hero-info">
-          <div class="hero-name">{{ store.playerName }}</div>
-          <div class="grade-badge" :style="`color: ${store.letterGrade.color}; border-color: ${store.letterGrade.color}44; background: ${store.letterGrade.color}15;`">
-            {{ store.letterGrade.grade }} — {{ store.letterGrade.label }}
-          </div>
-          <div class="hero-stats">
-            <div class="stat">
-              <div class="stat-val" style="color: #E8960A;">{{ store.totalXP.toLocaleString() }}</div>
-              <div class="stat-lbl">Total XP</div>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat">
-              <div class="stat-val" style="color: #12A67A;">{{ store.overallAccuracy }}%</div>
-              <div class="stat-lbl">Accuracy</div>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat">
-              <div class="stat-val" style="color: #2276D2;">{{ store.solvedCount }}/5</div>
-              <div class="stat-lbl">Cases Solved</div>
+    <article class="report paper anim-rise">
+      <header class="r-head">
+        <div>
+          <div class="t-label kicker">Incident report · PayVault HQ · 14th floor</div>
+          <h1 class="t-display title">Night-shift debrief</h1>
+          <div class="agent">
+            <DetectiveAvatar :color="store.playerColor" :size="44" />
+            <div>
+              <div class="agent-name">{{ store.playerName }}</div>
+              <div class="agent-rank">{{ rankFor(store.totalXP) }}</div>
             </div>
           </div>
         </div>
-      </div>
+        <div class="grade">
+          <span class="stamp anim-stamp grade-stamp" :style="{ color: store.letterGrade.color }">
+            {{ store.letterGrade.grade }}
+          </span>
+          <div class="grade-label">Accuracy grade</div>
+        </div>
+      </header>
 
-      <!-- ─── STRIDE Coverage Radar ─── -->
-      <div class="section animate-fade-up" style="animation-delay: 0.1s;">
-        <div class="section-title">STRIDE Coverage</div>
-        <div class="stride-coverage">
-          <div v-for="cov in store.strideCoverage" :key="cov.letter" class="cov-row">
-            <div class="cov-letter" :style="`color: ${catColor(cov.letter)};`">{{ cov.letter }}</div>
-            <div class="cov-name">{{ catName(cov.letter) }}</div>
-            <div class="cov-bar-wrap">
-              <div class="cov-bar-bg">
-                <div class="cov-bar-fill"
-                  :style="`width: ${cov.pct}%; background: ${catColor(cov.letter)};`">
-                </div>
-              </div>
+      <dl class="stats">
+        <div><dt>Total XP</dt><dd class="t-mono">{{ store.totalXP.toLocaleString() }}</dd></div>
+        <div><dt>Threats identified</dt><dd class="t-mono">{{ store.overallAccuracy }}%</dd></div>
+        <div><dt>Evidence recovered</dt><dd class="t-mono">{{ store.evidenceCount }}/{{ store.evidenceTotal }}</dd></div>
+        <div><dt>Hints used</dt><dd class="t-mono">{{ hintsUsed }}</dd></div>
+      </dl>
+
+      <section>
+        <h2 class="h">STRIDE coverage <span class="h-meta">expected threats you identified, by category</span></h2>
+        <ul class="coverage">
+          <li v-for="cov in store.strideCoverage" :key="cov.letter"
+            :title="`${STRIDE_BY[cov.letter].name}: ${cov.hit} of ${cov.total} identified`">
+            <span class="cov-l" :style="{ color: STRIDE_BY[cov.letter].color }">{{ cov.letter }}</span>
+            <span class="cov-name">{{ STRIDE_BY[cov.letter].name }}</span>
+            <span class="cov-track">
+              <span class="cov-fill" :style="{ width: `${cov.total ? (cov.hit / cov.total) * 100 : 0}%`, background: STRIDE_BY[cov.letter].color }"></span>
+            </span>
+            <span class="cov-val t-mono">{{ cov.total ? `${cov.hit}/${cov.total}` : '—' }}</span>
+          </li>
+        </ul>
+        <p class="cov-note">Categories with no expected threats in these five cases show a dash.</p>
+      </section>
+
+      <section>
+        <h2 class="h">Case by case</h2>
+        <div v-for="c in store.cases" :key="c.scenarioId" class="case">
+          <div class="case-top">
+            <span class="t-mono case-code">{{ c.scenarioId }}</span>
+            <div class="case-title">
+              <b>{{ scenarioTitle(c.scenarioId) }}</b>
+              <span class="muted">{{ roomOf(c.scenarioId) }}</span>
             </div>
-            <div class="cov-pct" :style="`color: ${catColor(cov.letter)};`">
-              {{ cov.hit }}/{{ cov.total }}
+            <span class="case-score t-mono" :style="{ color: scoreColor(c.score) }">{{ c.solved ? `${c.score}%` : 'open' }}</span>
+            <span class="case-xp t-mono">+{{ c.xpEarned }} XP</span>
+          </div>
+
+          <div v-if="c.solved" class="case-body">
+            <div class="chips">
+              <span v-for="cat in c.correct" :key="'c' + cat" class="chip hit" :style="{ '--cat': STRIDE_BY[cat].color }">
+                <IconCheck :size="14" stroke-width="2.6" /> {{ STRIDE_BY[cat].name }}
+              </span>
+              <span v-for="cat in c.missed" :key="'m' + cat" class="chip miss" :style="{ '--cat': STRIDE_BY[cat].color }">
+                <IconX :size="14" stroke-width="2.6" /> Missed {{ STRIDE_BY[cat].name }}
+              </span>
+              <span v-for="cat in c.falsePositives" :key="'f' + cat" class="chip fp" :style="{ '--cat': STRIDE_BY[cat].color }">
+                <IconMinus :size="14" stroke-width="2.6" /> {{ STRIDE_BY[cat].name }} did not apply
+              </span>
+            </div>
+            <div v-for="gt in missedTruths(c.scenarioId, c.missed)" :key="gt.title" class="truth" :style="{ '--cat': STRIDE_BY[gt.category].color }">
+              <div class="truth-title"><b>{{ gt.title }}</b> <span class="muted">· {{ gt.severity }}</span></div>
+              <p>{{ gt.explanation }}</p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- ─── Case-by-Case Breakdown ─── -->
-      <div class="section animate-fade-up" style="animation-delay: 0.2s;">
-        <div class="section-title">Case Breakdown</div>
-        <div class="cases-list">
-          <div v-for="(c, i) in store.cases" :key="c.scenarioId" class="case-card">
-            <!-- Case header -->
-            <div class="case-header">
-              <div class="case-num-badge" :style="c.solved ? 'background:#12A67A22; border-color:#12A67A55; color:#12A67A;' : 'background:#E8453C22; border-color:#E8453C55; color:#E8453C;'">
-                {{ i + 1 }}
-              </div>
-              <div class="case-title-area">
-                <div class="case-title">{{ scenarioTitle(c.scenarioId) }}</div>
-                <div class="case-id">{{ c.scenarioId }}</div>
-              </div>
-              <div class="case-score-badge" :style="`color: ${scoreColor(c.score)};`">
-                {{ c.score }}%
-              </div>
-              <div class="case-xp">+{{ c.xpEarned }} XP</div>
-            </div>
-
-            <!-- Results grid -->
-            <div v-if="c.solved" class="case-body">
-              <!-- Correct hits -->
-              <div v-if="c.correct.length" class="result-group">
-                <div class="result-label correct-label">✓ Correctly Identified</div>
-                <div class="tag-row">
-                  <span v-for="cat in c.correct" :key="cat"
-                    class="cat-tag"
-                    :style="`background: ${catColor(cat)}18; border-color: ${catColor(cat)}55; color: ${catColor(cat)};`">
-                    {{ cat }} — {{ catName(cat) }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Missed -->
-              <div v-if="c.missed.length" class="result-group">
-                <div class="result-label missed-label">✗ Missed Threats</div>
-                <div class="tag-row">
-                  <span v-for="cat in c.missed" :key="cat"
-                    class="cat-tag missed-tag"
-                    :style="`background: rgba(232,69,60,0.08); border-color: rgba(232,69,60,0.25); color: rgba(232,69,60,0.7);`">
-                    {{ cat }} — {{ catName(cat) }}
-                  </span>
-                </div>
-                <!-- Show ground truth explanations for missed -->
-                <div v-for="gt in getGroundTruth(c.scenarioId, c.missed)" :key="gt.category" class="truth-card">
-                  <div class="truth-header">
-                    <span class="truth-cat" :style="`color: ${catColor(gt.category)};`">{{ gt.category }}</span>
-                    <span class="truth-title">{{ gt.title }}</span>
-                    <span class="truth-sev" :style="`color: ${sevColor(gt.severity)};`">{{ gt.severity }}</span>
-                  </div>
-                  <p class="truth-explain">{{ gt.explanation }}</p>
-                </div>
-              </div>
-
-              <!-- False positives -->
-              <div v-if="c.falsePositives.length" class="result-group">
-                <div class="result-label fp-label">⚠ False Positives</div>
-                <div class="tag-row">
-                  <span v-for="cat in c.falsePositives" :key="cat"
-                    class="cat-tag"
-                    style="background: rgba(232,150,10,0.08); border-color: rgba(232,150,10,0.25); color: rgba(232,150,10,0.7);">
-                    {{ cat }} — {{ catName(cat) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div v-else class="case-unsolved">
-              Case not investigated
-            </div>
-          </div>
+      <footer class="r-foot">
+        <span class="muted">Filed {{ filedAt }}</span>
+        <div class="r-actions">
+          <button class="btn btn-outline" @click="router.push('/game')">Back to the floor</button>
+          <button class="btn btn-ink" @click="confirmReset = true">Start a new shift</button>
         </div>
-      </div>
+      </footer>
+    </article>
 
-      <!-- ─── Play Again ─── -->
-      <div class="action-row animate-fade-up" style="animation-delay: 0.3s;">
-        <button class="btn-game py-3 px-8" @click="router.push('/game')">
-          ← Back to Map
-        </button>
-        <button
-          class="btn-game-accent py-3 px-8"
-          style="background: rgba(18,166,122,0.15); border-color: rgba(18,166,122,0.4); color: #4ECDA4;"
-          @click="confirmReset = true">
-          ↺ Play Again
-        </button>
+    <div v-if="confirmReset" class="overlay" @mousedown.self="confirmReset = false">
+      <div class="confirm paper anim-rise" role="alertdialog" aria-modal="true">
+        <h3>Start a new shift?</h3>
+        <p>This erases {{ store.playerName }}'s cases, evidence, XP and manual progress.</p>
+        <div class="confirm-actions">
+          <button class="btn btn-outline" @click="confirmReset = false">Keep this shift</button>
+          <button class="btn btn-alarm" @click="resetAndRestart">Erase and restart</button>
+        </div>
       </div>
     </div>
-
-    <!-- Reset confirm modal -->
-    <Transition name="fade">
-      <div v-if="confirmReset" class="modal-backdrop" @click.self="confirmReset = false">
-        <div class="modal-box animate-bounce-in">
-          <div class="modal-icon">⚠️</div>
-          <h3 class="modal-title">Start New Game?</h3>
-          <p class="modal-body">This will erase all progress and XP. Are you sure?</p>
-          <div class="modal-actions">
-            <button class="btn-game py-2.5 px-6 text-sm" @click="confirmReset = false">Cancel</button>
-            <button class="btn-game-accent py-2.5 px-6 text-sm"
-              style="background: rgba(232,69,60,0.2); border-color: rgba(232,69,60,0.5); color: #ff6b6b;"
-              @click="resetAndRestart">
-              Yes, Reset
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { IconArrowLeft, IconRefresh, IconCheck, IconX, IconMinus } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
 import { scenarios } from '@/data'
+import { rooms } from '@/game/world'
+import { STRIDE_BY, rankFor } from '@/game/stride'
+import DetectiveAvatar from '@/components/DetectiveAvatar.vue'
 
 const router = useRouter()
 const store  = useGameStore()
-store.load()
-
-if (!store.gameStarted) router.replace('/')
-
 const confirmReset = ref(false)
 
-const catColors: Record<string, string> = {
-  S: '#E8453C', T: '#E8960A', R: '#12A67A',
-  I: '#2276D2', D: '#52A882', E: '#7B41E0',
-}
-const catNames: Record<string, string> = {
-  S: 'Spoofing', T: 'Tampering', R: 'Repudiation',
-  I: 'Info Disclosure', D: 'Denial of Svc', E: 'Elevation',
-}
-function catColor(l: string) { return catColors[l] ?? '#888' }
-function catName(l: string)  { return catNames[l]  ?? l }
+const hintsUsed = computed(() => store.cases.reduce((a, c) => a + c.hintsUsed, 0))
+const filedAt = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-function scenarioTitle(id: string) {
-  return scenarios.find(s => s.id === id)?.title ?? id
+function scenarioTitle(id: string) { return scenarios.find(s => s.id === id)?.title ?? id }
+function roomOf(id: string) { return rooms.find(r => r.scenarioId === id)?.name ?? '' }
+function missedTruths(id: string, cats: string[]) {
+  return scenarios.find(s => s.id === id)?.groundTruth.filter(gt => cats.includes(gt.category)) ?? []
 }
-
-function getGroundTruth(scenarioId: string, cats: string[]) {
-  const s = scenarios.find(s => s.id === scenarioId)
-  return s?.groundTruth.filter(gt => cats.includes(gt.category)) ?? []
-}
-
 function scoreColor(score: number) {
-  if (score >= 80) return '#12A67A'
-  if (score >= 50) return '#E8960A'
-  return '#E8453C'
-}
-
-function sevColor(sev: string) {
-  const m: Record<string, string> = {
-    Critical: '#E8453C', High: '#E8960A', Medium: '#2276D2', Low: '#12A67A',
-  }
-  return m[sev] ?? '#888'
+  return score >= 80 ? '#2F7D57' : score >= 50 ? '#A8680F' : '#B8321F'
 }
 
 function resetAndRestart() {
@@ -230,304 +137,116 @@ function resetAndRestart() {
 </script>
 
 <style scoped>
-.debrief-bg {
-  background: var(--game-bg);
-  background-image:
-    radial-gradient(ellipse 50% 50% at 80% 20%, rgba(18,166,122,0.05) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 40% at 20% 80%, rgba(114,65,224,0.06) 0%, transparent 60%);
-  min-height: 100vh;
-  color: var(--game-text);
+.page { min-height: 100vh; background: var(--color-ink-950); padding-bottom: 64px; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 920px; margin: 0 auto; padding: 16px 16px 20px;
 }
+.back {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: none; border: 0; padding: 6px 0;
+  font-size: 14px; font-weight: 600; color: var(--color-fog-dim); cursor: pointer;
+}
+.back:hover { color: var(--color-fog); }
 
-.scanline-layer {
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 2px,
-    rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
-  );
-  pointer-events: none;
-  z-index: 1;
-}
-
-.debrief-header {
-  position: sticky;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 24px;
-  background: rgba(8,8,18,0.88);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  backdrop-filter: blur(12px);
-  z-index: 10;
-}
-.header-title {
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(232,232,255,0.7);
-}
-.back-btn, .reset-btn {
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(232,232,255,0.4);
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color 0.15s;
-  padding: 4px 8px;
-}
-.back-btn:hover, .reset-btn:hover { color: rgba(232,232,255,0.85); }
-
-.debrief-content {
-  max-width: 760px;
+.report {
+  max-width: 888px;
   margin: 0 auto;
-  padding: 32px 20px 60px;
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  position: relative;
-  z-index: 2;
+  padding: 40px 48px 32px;
+  border-radius: 2px;
+  box-shadow: 0 30px 80px #0009;
 }
+.r-head { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
+.kicker { color: var(--color-pen-3); }
+.title { font-size: clamp(36px, 6vw, 58px); margin: 12px 0 18px; }
+.agent { display: flex; align-items: center; gap: 12px; }
+.agent-name { font-weight: 700; font-size: 17px; }
+.agent-rank { font-size: 14px; color: var(--color-pen-3); }
+.grade { text-align: center; flex-shrink: 0; padding-top: 10px; }
+.grade-stamp { font-size: 76px; padding: 6px 22px 2px; border-width: 5px; }
+.grade-label { margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--color-pen-2); }
 
-/* Hero Score */
-.score-hero {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 28px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 18px;
-}
-.hero-char-wrap {
-  position: relative;
-  flex-shrink: 0;
-  width: 70px;
-  height: 70px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.hero-char {
-  width: 52px;
-  height: 62px;
-  border-radius: 50% 50% 38% 38%;
-  position: relative;
-  z-index: 1;
-}
-.hero-visor {
-  position: absolute;
-  top: 9px; left: 8px; right: 8px;
-  height: 16px;
-  background: rgba(200,230,255,0.9);
-  border-radius: 50% 50% 28% 28%;
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.15);
-}
-.hero-glow {
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  opacity: 0.15;
-  filter: blur(16px);
-}
-
-.hero-info { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.hero-name {
-  font-size: 22px;
-  font-weight: 900;
-  color: var(--game-text);
-  line-height: 1;
-}
-.grade-badge {
-  display: inline-flex;
-  align-self: flex-start;
-  padding: 4px 12px;
-  border-radius: 8px;
-  border: 1px solid;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-.hero-stats {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 4px;
-}
-.stat { display: flex; flex-direction: column; gap: 2px; }
-.stat-val { font-size: 20px; font-weight: 900; font-family: 'JetBrains Mono', monospace; line-height: 1; }
-.stat-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(232,232,255,0.3); }
-.stat-divider { width: 1px; height: 30px; background: rgba(255,255,255,0.08); }
-
-/* Sections */
-.section { display: flex; flex-direction: column; gap: 14px; }
-.section-title {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: rgba(232,232,255,0.3);
-}
-
-/* STRIDE Coverage */
-.stride-coverage { display: flex; flex-direction: column; gap: 8px; }
-.cov-row {
+.stats {
   display: grid;
-  grid-template-columns: 20px 130px 1fr 36px;
-  align-items: center;
-  gap: 10px;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 30px 0 0;
+  border-top: 2px solid var(--color-pen);
+  border-bottom: 1px solid var(--color-paper-line);
 }
-.cov-letter { font-size: 13px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }
-.cov-name { font-size: 11px; font-weight: 600; color: rgba(232,232,255,0.5); }
-.cov-bar-wrap { flex: 1; }
-.cov-bar-bg {
-  height: 8px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.cov-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 1s cubic-bezier(0.4,0,0.2,1);
-}
-.cov-pct { font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono', monospace; text-align: right; }
+.stats > div { padding: 14px 0 12px; }
+.stats > div + div { padding-left: 18px; border-left: 1px solid var(--color-paper-line); }
+.stats dt { font-size: 13px; color: var(--color-pen-3); }
+.stats dd { margin: 4px 0 0; font-size: 26px; font-weight: 600; }
 
-/* Cases */
-.cases-list { display: flex; flex-direction: column; gap: 12px; }
-.case-card {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
-  overflow: hidden;
-  transition: border-color 0.2s;
+.h {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  font-size: 14px; font-weight: 700;
+  margin: 36px 0 12px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-pen);
 }
-.case-card:hover { border-color: rgba(255,255,255,0.14); }
+.h-meta { font-weight: 400; font-size: 13px; color: var(--color-pen-3); }
 
-.case-header {
-  display: flex;
+.coverage { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.coverage li {
+  display: grid;
+  grid-template-columns: 22px 190px 1fr 44px;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 7px 0;
 }
-.case-num-badge {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  border: 1px solid;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 800;
-  font-family: 'JetBrains Mono', monospace;
-  flex-shrink: 0;
-}
-.case-title-area { flex: 1; min-width: 0; }
-.case-title { font-size: 13px; font-weight: 700; color: var(--game-text); }
-.case-id { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: rgba(232,232,255,0.3); }
-.case-score-badge { font-size: 16px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }
-.case-xp {
-  font-size: 11px;
-  font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  color: rgba(232,150,10,0.7);
-}
+.cov-l { font-family: var(--font-cond); font-weight: 700; font-size: 20px; line-height: 1; }
+.cov-name { font-size: 14px; }
+.cov-track { height: 8px; background: var(--color-paper-3); border-radius: 0 4px 4px 0; overflow: hidden; }
+.cov-fill { display: block; height: 100%; border-radius: 0 4px 4px 0; transition: width .8s cubic-bezier(.2,.7,.2,1); }
+.cov-val { font-size: 13px; text-align: right; color: var(--color-pen); }
+.cov-note { font-size: 12px; color: var(--color-pen-3); margin: 8px 0 0; }
 
-.case-body {
-  border-top: 1px solid rgba(255,255,255,0.06);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.case { padding: 14px 0; border-bottom: 1px dashed var(--color-paper-line); }
+.case-top { display: flex; align-items: center; gap: 14px; }
+.case-code { font-size: 12px; color: var(--color-pen-3); width: 52px; flex-shrink: 0; }
+.case-title { flex: 1; display: grid; font-size: 15px; min-width: 0; }
+.case-score { font-size: 18px; font-weight: 600; }
+.case-xp { font-size: 13px; color: var(--color-pen-3); width: 76px; text-align: right; }
+.case-body { padding-left: 66px; margin-top: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 13px; padding: 3px 9px 3px 7px;
+  border-radius: 2px; border: 1px solid var(--color-paper-line);
+  border-left: 3px solid var(--cat);
+  background: #F6F2E8;
 }
-.case-unsolved {
-  font-size: 11px;
-  color: rgba(232,232,255,0.2);
-  padding: 10px 16px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  font-style: italic;
-}
+.chip.hit svg { color: #2F7D57; }
+.chip.miss svg, .chip.fp svg { color: #B8321F; }
+.truth { margin-top: 10px; padding: 10px 12px; border-left: 3px solid var(--cat); background: #B8321F0D; }
+.truth-title { font-size: 14px; }
+.truth p { margin: 4px 0 0; font-size: 14px; line-height: 1.55; color: var(--color-pen-2); }
+.muted { color: var(--color-pen-3); font-size: 13px; }
 
-.result-group { display: flex; flex-direction: column; gap: 6px; }
-.result-label { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-.correct-label { color: rgba(18,166,122,0.7); }
-.missed-label  { color: rgba(232,69,60,0.7); }
-.fp-label      { color: rgba(232,150,10,0.7); }
+.r-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+.r-actions { display: flex; gap: 8px; }
 
-.tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.cat-tag {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 6px;
-  border: 1px solid;
-  font-family: 'JetBrains Mono', monospace;
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center; padding: 16px;
+  background: #05070AB3;
 }
-.missed-tag {}
+.confirm { width: min(420px, 100%); padding: 24px; border-radius: 3px; box-shadow: 0 30px 80px #000A; }
+.confirm h3 { margin: 0 0 8px; font-size: 20px; }
+.confirm p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--color-pen-2); }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
-/* Ground truth explanation */
-.truth-card {
-  background: rgba(232,69,60,0.04);
-  border: 1px solid rgba(232,69,60,0.12);
-  border-radius: 8px;
-  padding: 10px 12px;
+@media (max-width: 680px) {
+  .report { padding: 28px 18px; border-radius: 0; }
+  .r-head { flex-direction: column-reverse; }
+  .grade { align-self: flex-start; display: flex; align-items: center; gap: 16px; padding: 0; }
+  .grade-stamp { font-size: 52px; }
+  .grade-label { margin: 0; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .stats > div:nth-child(3) { padding-left: 0; border-left: 0; }
+  .coverage li { grid-template-columns: 22px 1fr 44px; }
+  .cov-track { grid-column: 2 / 4; grid-row: 2; }
+  .case-body { padding-left: 0; }
+  .case-xp { display: none; }
 }
-.truth-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-.truth-cat {
-  font-size: 12px;
-  font-weight: 900;
-  font-family: 'JetBrains Mono', monospace;
-}
-.truth-title { font-size: 12px; font-weight: 700; color: var(--game-text); flex: 1; }
-.truth-sev { font-size: 10px; font-weight: 700; }
-.truth-explain { font-size: 11px; color: rgba(232,232,255,0.5); line-height: 1.6; margin: 0; }
-
-/* Actions */
-.action-row {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  padding-top: 8px;
-}
-
-/* Reset modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(4px);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-.modal-box {
-  background: #0D0D20;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 18px;
-  padding: 28px;
-  max-width: 360px;
-  width: 100%;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.modal-icon { font-size: 32px; }
-.modal-title { font-size: 18px; font-weight: 800; color: var(--game-text); }
-.modal-body { font-size: 13px; color: var(--game-text-dim); line-height: 1.5; }
-.modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 4px; }
-
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

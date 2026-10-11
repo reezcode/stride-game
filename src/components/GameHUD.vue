@@ -1,232 +1,153 @@
 <template>
-  <div class="hud">
-    <!-- Left: player info -->
-    <div class="hud-section">
-      <div class="player-badge" :style="`border-color: ${store.playerColor}55;`">
-        <div class="mini-char" :style="`background: ${store.playerColor};`">
-          <div class="mini-visor"></div>
-        </div>
-        <div>
-          <div class="player-name">{{ store.playerName }}</div>
-          <div class="player-sub">Security Detective</div>
-        </div>
+  <header class="hud">
+    <div class="who">
+      <DetectiveAvatar :color="store.playerColor" :size="34" />
+      <div class="who-text">
+        <div class="who-name">{{ store.playerName }}</div>
+        <div class="who-rank">{{ rank }}</div>
       </div>
     </div>
 
-    <!-- Center: cases progress -->
-    <div class="hud-center">
-      <div class="cases-track">
-        <div v-for="(t, i) in terminals" :key="t.id"
-          class="case-pip"
-          :class="getCaseStatus(t.scenarioId)"
-          :title="`Case ${i+1}: ${t.label}`">
-          <span class="pip-num">{{ i + 1 }}</span>
-        </div>
-      </div>
-      <div class="cases-label">{{ store.solvedCount }}/{{ total }} Cases Solved</div>
-    </div>
+    <ol class="cases" aria-label="Cases">
+      <li v-for="c in caseRows" :key="c.id" :class="['case', c.status]" :title="`${c.room} — ${c.label}`">
+        <span class="case-dot"></span>
+        <span class="case-room">{{ c.room }}</span>
+      </li>
+    </ol>
 
-    <!-- Right: XP + learn button -->
-    <div class="hud-section hud-right">
-      <button class="learn-btn" @click="router.push('/learn')" title="STRIDE Reference Desk">
-        📚
-        <span class="learn-label">Learn</span>
-        <span v-if="store.phase2Completed" class="learn-check">✓</span>
+    <div class="tools">
+      <div class="stat" title="Evidence collected">
+        <IconFileSearch :size="16" stroke-width="1.8" />
+        <span class="t-mono">{{ store.evidenceCount }}<span class="dim">/{{ store.evidenceTotal }}</span></span>
+      </div>
+      <div class="stat xp" title="Experience">
+        <span class="t-mono">{{ store.totalXP.toLocaleString() }}</span>
+        <span class="dim t-mono">XP</span>
+      </div>
+      <button class="icon-btn" title="STRIDE field manual" @click="$emit('manual')">
+        <IconBook2 :size="18" stroke-width="1.8" />
       </button>
-      <div class="xp-badge">
-        <div class="xp-icon">⚡</div>
-        <div>
-          <div class="xp-value">{{ store.totalXP.toLocaleString() }}</div>
-          <div class="xp-label">XP</div>
-        </div>
-      </div>
+      <button class="icon-btn" :title="muted ? 'Unmute (M)' : 'Mute (M)'" @click="$emit('toggleSound')">
+        <IconVolumeOff v-if="muted" :size="18" stroke-width="1.8" />
+        <IconVolume v-else :size="18" stroke-width="1.8" />
+      </button>
+      <button class="icon-btn" title="Menu (Esc)" @click="$emit('menu')">
+        <IconMenu2 :size="18" stroke-width="1.8" />
+      </button>
     </div>
-  </div>
+  </header>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { IconBook2, IconVolume, IconVolumeOff, IconMenu2, IconFileSearch } from '@tabler/icons-vue'
 import { useGameStore } from '@/stores/game'
+import { rooms } from '@/game/world'
+import { scenarios } from '@/data'
+import { rankFor } from '@/game/stride'
+import DetectiveAvatar from './DetectiveAvatar.vue'
 
-const router = useRouter()
-const store  = useGameStore()
-const total  = 5
+defineProps<{ muted: boolean }>()
+defineEmits<{ manual: []; menu: []; toggleSound: [] }>()
 
-const terminals = [
-  { id: 'T1', scenarioId: 'SC-001', label: 'TX-API' },
-  { id: 'T2', scenarioId: 'SC-002', label: 'AUTH-SRV' },
-  { id: 'T3', scenarioId: 'SC-003', label: 'FIN-CORE' },
-  { id: 'T4', scenarioId: 'SC-004', label: 'ADMIN-01' },
-  { id: 'T5', scenarioId: 'SC-005', label: 'STORE-FS' },
-]
+const store = useGameStore()
+const rank = computed(() => rankFor(store.totalXP))
 
-function getCaseStatus(id: string) {
-  const c = store.getCase(id)
-  if (!c) return 'pip-locked'
-  if (c.solved) return 'pip-solved'
-  if (c.visited) return 'pip-visited'
-  return 'pip-unvisited'
-}
+const caseRows = computed(() => scenarios.map(s => {
+  const c = store.getCase(s.id)
+  const room = rooms.find(r => r.scenarioId === s.id)
+  return {
+    id: s.id,
+    label: s.title,
+    room: room?.name ?? s.id,
+    status: c?.solved ? 'solved' : c?.visited ? 'visited' : 'breach',
+  }
+}))
 </script>
 
 <style scoped>
 .hud {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  inset: 0 0 auto 0;
   height: 56px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background: rgba(8, 8, 18, 0.9);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  backdrop-filter: blur(12px);
-  z-index: 90;
-  gap: 12px;
+  gap: 16px;
+  padding: 0 12px 0 10px;
+  padding-top: env(safe-area-inset-top);
+  background: linear-gradient(#0B0E13F2, #0B0E13D9);
+  border-bottom: 1px solid var(--color-ink-line);
+  z-index: 40;
 }
 
-.hud-section { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.hud-right { justify-content: flex-end; }
-
-.hud-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-}
-
-/* Player badge */
-.player-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px 6px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
-}
-.mini-char {
-  width: 22px;
-  height: 26px;
-  border-radius: 50% 50% 38% 38%;
-  position: relative;
-  flex-shrink: 0;
-}
-.mini-visor {
-  position: absolute;
-  top: 4px; left: 4px; right: 4px;
-  height: 8px;
-  background: rgba(255,255,255,0.88);
-  border-radius: 50% 50% 25% 25%;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
-}
-.player-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(232,232,255,0.9);
+.who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.who-text { min-width: 0; }
+.who-name {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
   white-space: nowrap;
-  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.player-sub {
-  font-size: 9px;
-  color: rgba(232,232,255,0.35);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
+.who-rank { font-size: 12px; color: var(--color-fog-dim); line-height: 1.2; }
 
-/* Cases track */
-.cases-track {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.case-pip {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
+.cases { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.case {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 800;
-  font-family: 'JetBrains Mono', monospace;
-  transition: all 0.3s ease;
-  border: 1px solid transparent;
-}
-.pip-num { line-height: 1; }
-.pip-unvisited {
-  background: rgba(232,69,60,0.12);
-  border-color: rgba(232,69,60,0.3);
-  color: rgba(232,69,60,0.6);
-}
-.pip-visited {
-  background: rgba(232,150,10,0.18);
-  border-color: rgba(232,150,10,0.4);
-  color: #E8960A;
-  box-shadow: 0 0 8px rgba(232,150,10,0.2);
-}
-.pip-solved {
-  background: rgba(18,166,122,0.18);
-  border-color: rgba(18,166,122,0.5);
-  color: #12A67A;
-  box-shadow: 0 0 8px rgba(18,166,122,0.25);
-}
-.cases-label {
-  font-size: 9px;
-  color: rgba(232,232,255,0.3);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 600;
-}
-
-/* Learn button */
-.learn-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(232,232,255,0.7);
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--color-ink-line);
+  border-radius: 3px;
   font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
+  color: var(--color-fog-dim);
+  white-space: nowrap;
 }
-.learn-btn:hover {
-  background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.2);
-  color: rgba(232,232,255,0.95);
-}
-.learn-label { font-size: 11px; }
-.learn-check { color: #12A67A; font-size: 11px; }
+.case-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.case.breach .case-dot { background: var(--color-alarm); box-shadow: 0 0 0 3px #D9432F26; }
+.case.visited .case-dot { background: var(--color-amber); }
+.case.visited { color: var(--color-fog); }
+.case.solved .case-dot { background: var(--color-secure); }
+.case.solved { color: var(--color-fog); border-color: #3D9A6C55; }
 
-/* XP badge */
-.xp-badge {
+.tools { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.stat {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(232,150,10,0.1);
-  border: 1px solid rgba(232,150,10,0.25);
-}
-.xp-icon { font-size: 14px; }
-.xp-value {
+  height: 32px;
+  padding: 0 10px;
   font-size: 13px;
-  font-weight: 800;
-  color: #E8960A;
-  font-family: 'JetBrains Mono', monospace;
-  line-height: 1;
+  color: var(--color-fog);
 }
-.xp-label {
-  font-size: 8px;
-  color: rgba(232,150,10,0.6);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+.stat .dim, .dim { color: var(--color-fog-mute); }
+.stat.xp { color: #F0C674; gap: 4px; }
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-fog-dim);
+  cursor: pointer;
+}
+.icon-btn:hover { background: var(--color-ink-800); color: var(--color-fog); border-color: var(--color-ink-line); }
+
+@media (max-width: 1100px) {
+  .case-room { display: none; }
+  .case { padding: 0 9px; }
+}
+@media (max-width: 640px) {
+  .hud { grid-template-columns: auto 1fr auto; gap: 8px; }
+  .who-text { display: none; }
+  .cases { justify-content: center; }
+  .case { padding: 0 7px; height: 26px; }
+  .stat:first-child { display: none; }
+  .icon-btn { width: 32px; }
 }
 </style>

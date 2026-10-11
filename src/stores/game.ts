@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { scenarios } from '@/data'
+import { XP_RULES } from '@/game/stride'
 
 export type StrideCategory = 'S' | 'T' | 'R' | 'I' | 'D' | 'E'
 export type Severity = 'Critical' | 'High' | 'Medium' | 'Low'
@@ -13,6 +14,14 @@ export interface FiledConcern {
   severity: Severity
 }
 
+export interface XpBreakdown {
+  correct: number
+  severity: number
+  evidence: number
+  hints: number
+  falsePositives: number
+}
+
 export interface CaseProgress {
   scenarioId: string
   visited: boolean
@@ -23,6 +32,9 @@ export interface CaseProgress {
   correct: string[]       // categories correctly identified
   missed: string[]        // categories missed
   falsePositives: string[] // categories incorrectly filed
+  evidenceFound: number[] // indices into scenario.details
+  hintsUsed: number
+  breakdown: XpBreakdown | null
 }
 
 export interface GameState {
@@ -32,18 +44,20 @@ export interface GameState {
   gameCompleted: boolean
   totalXP: number
   cases: CaseProgress[]
-  // STRIDE learning progress (reused from old system)
   completedModules: string[]
   quizScores: Record<string, number>
+  briefingSeen: boolean
+  visitedRooms: string[]
+  lastPos: { x: number; y: number } | null
 }
 
 const PLAYER_COLORS = [
-  { id: 'red',    hex: '#E8453C', label: 'Red' },
-  { id: 'blue',   hex: '#2276D2', label: 'Blue' },
-  { id: 'green',  hex: '#12A67A', label: 'Green' },
-  { id: 'purple', hex: '#7B41E0', label: 'Purple' },
-  { id: 'orange', hex: '#E8960A', label: 'Orange' },
-  { id: 'teal',   hex: '#52A882', label: 'Teal' },
+  { id: 'red',    hex: '#C8442F', label: 'Brick' },
+  { id: 'blue',   hex: '#3567B4', label: 'Cobalt' },
+  { id: 'green',  hex: '#3D8A5C', label: 'Fern' },
+  { id: 'purple', hex: '#7552C2', label: 'Violet' },
+  { id: 'orange', hex: '#D98A1F', label: 'Ochre' },
+  { id: 'teal',   hex: '#2A8B8B', label: 'Teal' },
 ]
 
 export { PLAYER_COLORS }
@@ -59,6 +73,9 @@ function newCaseProgress(scenarioId: string): CaseProgress {
     correct: [],
     missed: [],
     falsePositives: [],
+    evidenceFound: [],
+    hintsUsed: 0,
+    breakdown: null,
   }
 }
 
@@ -73,9 +90,12 @@ export const useGameStore = defineStore('game', () => {
     scenarios.map(s => newCaseProgress(s.id))
   )
 
-  // STRIDE learning (keep progress from old system)
   const completedModules = ref<string[]>([])
   const quizScores       = ref<Record<string, number>>({})
+
+  const briefingSeen = ref(false)
+  const visitedRooms = ref<string[]>([])
+  const lastPos      = ref<{ x: number; y: number } | null>(null)
 
   // ── Computed ──
 
@@ -85,6 +105,9 @@ export const useGameStore = defineStore('game', () => {
   const phase2Progress = computed(() => (completedModules.value.length / 6) * 100)
   const phase2Completed = computed(() => completedModules.value.length === 6)
 
+  const evidenceTotal = computed(() => scenarios.reduce((a, s) => a + s.details.length, 0))
+  const evidenceCount = computed(() => cases.value.reduce((a, c) => a + c.evidenceFound.length, 0))
+
   const overallAccuracy = computed(() => {
     const solved = cases.value.filter(c => c.solved)
     if (!solved.length) return 0
@@ -93,11 +116,11 @@ export const useGameStore = defineStore('game', () => {
 
   const letterGrade = computed(() => {
     const acc = overallAccuracy.value
-    if (acc >= 90) return { grade: 'S', label: 'Master Detective', color: '#12A67A' }
-    if (acc >= 75) return { grade: 'A', label: 'Senior Analyst',   color: '#2276D2' }
-    if (acc >= 60) return { grade: 'B', label: 'Junior Analyst',   color: '#E8960A' }
-    if (acc >= 45) return { grade: 'C', label: 'Trainee',          color: '#E8453C' }
-    return              { grade: 'F', label: 'Needs More Study',   color: '#8A8A84' }
+    if (acc >= 90) return { grade: 'S', label: 'Master Detective', color: '#3D9A6C' }
+    if (acc >= 75) return { grade: 'A', label: 'Senior Analyst',   color: '#3567B4' }
+    if (acc >= 60) return { grade: 'B', label: 'Junior Analyst',   color: '#CC8419' }
+    if (acc >= 45) return { grade: 'C', label: 'Trainee',          color: '#CF4630' }
+    return              { grade: 'F', label: 'Needs More Study',   color: '#7B7466' }
   })
 
   // Per-category coverage across all cases
@@ -120,6 +143,7 @@ export const useGameStore = defineStore('game', () => {
   // ── Actions ──
 
   function startGame(name: string, color: string) {
+    resetGame()
     playerName.value  = name
     playerColor.value = color
     gameStarted.value = true
@@ -128,12 +152,37 @@ export const useGameStore = defineStore('game', () => {
 
   function visitCase(scenarioId: string) {
     const c = cases.value.find(c => c.scenarioId === scenarioId)
-    if (c) { c.visited = true; save() }
+    if (c && !c.visited) { c.visited = true; save() }
+  }
+
+  function visitRoom(roomId: string) {
+    if (!visitedRooms.value.includes(roomId)) {
+      visitedRooms.value.push(roomId)
+      save()
+    }
+  }
+
+  /** Returns true if this was a new find. */
+  function findEvidence(scenarioId: string, index: number) {
+    const c = cases.value.find(c => c.scenarioId === scenarioId)
+    if (!c || c.evidenceFound.includes(index)) return false
+    c.evidenceFound.push(index)
+    c.visited = true
+    save()
+    return true
+  }
+
+  function useHint(scenarioId: string) {
+    const c = cases.value.find(c => c.scenarioId === scenarioId)
+    const s = scenarios.find(s => s.id === scenarioId)
+    if (!c || !s || c.solved || c.hintsUsed >= s.hints.length) return
+    c.hintsUsed++
+    save()
   }
 
   function solveCase(scenarioId: string, filedConcerns: FiledConcern[]) {
     const c = cases.value.find(c => c.scenarioId === scenarioId)
-    if (!c) return
+    if (!c || c.solved) return
 
     const scenario    = scenarios.find(s => s.id === scenarioId)!
     const groundTruth = scenario.groundTruth
@@ -141,36 +190,42 @@ export const useGameStore = defineStore('game', () => {
     const filedCats = filedConcerns.map(f => f.category)
     const truthCats = groundTruth.map(g => g.category)
 
-    const correct       = truthCats.filter(cat => filedCats.includes(cat))
-    const missed        = truthCats.filter(cat => !filedCats.includes(cat))
+    const correct        = truthCats.filter(cat => filedCats.includes(cat))
+    const missed         = truthCats.filter(cat => !filedCats.includes(cat))
     const falsePositives = filedCats.filter(cat => !truthCats.includes(cat))
 
-    // Severity bonus
-    let severityBonus = 0
+    let severityMatches = 0
     filedConcerns.forEach(concern => {
       const matched = groundTruth.find(gt => gt.category === concern.category)
-      if (matched && matched.severity === concern.severity) severityBonus += 50
+      if (matched && matched.severity === concern.severity) severityMatches++
     })
 
-    const baseXP  = correct.length * 200
-    const penalty = falsePositives.length * 50
-    const xp      = Math.max(0, baseXP + severityBonus - penalty)
-    const score   = groundTruth.length > 0
+    const breakdown: XpBreakdown = {
+      correct:        correct.length * XP_RULES.correct,
+      severity:       severityMatches * XP_RULES.severityMatch,
+      evidence:       c.evidenceFound.length * XP_RULES.evidence,
+      hints:          c.hintsUsed * XP_RULES.hint,
+      falsePositives: falsePositives.length * XP_RULES.falsePositive,
+    }
+    const xp = Math.max(0, Object.values(breakdown).reduce((a, b) => a + b, 0))
+    const score = groundTruth.length > 0
       ? Math.round((correct.length / groundTruth.length) * 100)
       : 0
 
-    c.filedConcerns = filedConcerns
+    c.filedConcerns  = filedConcerns
     c.solved         = true
+    c.visited        = true
     c.correct        = correct
     c.missed         = missed
     c.falsePositives = falsePositives
     c.score          = score
     c.xpEarned       = xp
+    c.breakdown      = breakdown
     totalXP.value   += xp
 
-    if (allSolved.value) {
+    if (allSolved.value && !gameCompleted.value) {
       gameCompleted.value = true
-      totalXP.value += 500 // completion bonus
+      totalXP.value += XP_RULES.completion
     }
     save()
   }
@@ -187,6 +242,16 @@ export const useGameStore = defineStore('game', () => {
     return cases.value.find(c => c.scenarioId === id)
   }
 
+  function markBriefingSeen() {
+    briefingSeen.value = true
+    save()
+  }
+
+  function setLastPos(x: number, y: number) {
+    lastPos.value = { x: Math.round(x), y: Math.round(y) }
+    save()
+  }
+
   function resetGame() {
     playerName.value   = ''
     playerColor.value  = PLAYER_COLORS[0].hex
@@ -196,12 +261,15 @@ export const useGameStore = defineStore('game', () => {
     cases.value        = scenarios.map(s => newCaseProgress(s.id))
     completedModules.value = []
     quizScores.value   = {}
-    localStorage.removeItem('stride_game')
+    briefingSeen.value = false
+    visitedRooms.value = []
+    lastPos.value      = null
+    try { localStorage.removeItem('stride_game') } catch { /* noop */ }
   }
 
   function save() {
     try {
-      localStorage.setItem('stride_game', JSON.stringify({
+      const state: GameState = {
         playerName: playerName.value,
         playerColor: playerColor.value,
         gameStarted: gameStarted.value,
@@ -210,7 +278,11 @@ export const useGameStore = defineStore('game', () => {
         cases: cases.value,
         completedModules: completedModules.value,
         quizScores: quizScores.value,
-      }))
+        briefingSeen: briefingSeen.value,
+        visitedRooms: visitedRooms.value,
+        lastPos: lastPos.value,
+      }
+      localStorage.setItem('stride_game', JSON.stringify(state))
     } catch { /* noop */ }
   }
 
@@ -218,24 +290,33 @@ export const useGameStore = defineStore('game', () => {
     try {
       const raw = localStorage.getItem('stride_game')
       if (!raw) return
-      const d = JSON.parse(raw) as GameState
+      const d = JSON.parse(raw) as Partial<GameState>
       playerName.value    = d.playerName    ?? ''
       playerColor.value   = d.playerColor   ?? PLAYER_COLORS[0].hex
       gameStarted.value   = d.gameStarted   ?? false
       gameCompleted.value = d.gameCompleted ?? false
       totalXP.value       = d.totalXP       ?? 0
-      cases.value         = d.cases         ?? scenarios.map(s => newCaseProgress(s.id))
+      // Merge per scenario so saves from older versions pick up new fields.
+      cases.value = scenarios.map(s => ({
+        ...newCaseProgress(s.id),
+        ...(d.cases?.find(c => c.scenarioId === s.id) ?? {}),
+      }))
       completedModules.value = d.completedModules ?? []
       quizScores.value    = d.quizScores    ?? {}
+      briefingSeen.value  = d.briefingSeen  ?? false
+      visitedRooms.value  = d.visitedRooms  ?? []
+      lastPos.value       = d.lastPos       ?? null
     } catch { /* noop */ }
   }
 
   return {
     playerName, playerColor, gameStarted, gameCompleted,
     totalXP, cases, completedModules, quizScores,
+    briefingSeen, visitedRooms, lastPos,
     solvedCount, allSolved, phase2Progress, phase2Completed,
+    evidenceTotal, evidenceCount,
     overallAccuracy, letterGrade, strideCoverage,
-    startGame, visitCase, solveCase, completeModule,
-    getCase, resetGame, save, load,
+    startGame, visitCase, visitRoom, findEvidence, useHint, solveCase, completeModule,
+    getCase, markBriefingSeen, setLastPos, resetGame, save, load,
   }
 })

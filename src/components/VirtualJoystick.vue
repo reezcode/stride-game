@@ -25,7 +25,7 @@ const baseRef   = ref<HTMLElement|null>(null)
 const knobX     = ref(0)
 const knobY     = ref(0)
 const touchId   = ref<number|null>(null)
-const MAX_RADIUS = 36
+const MAX_RADIUS = 44
 
 function onTouchStart(e: TouchEvent) {
   const touch = e.changedTouches[0]
@@ -67,62 +67,44 @@ function updateKnob(touch: Touch) {
 <style scoped>
 .joystick-area {
   position: fixed;
-  bottom: 40px;
-  left: 40px;
-  z-index: 60;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  left: 20px;
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  z-index: 26;
   touch-action: none;
 }
-
 .joystick-base {
-  width: 90px;
-  height: 90px;
+  width: 120px;
+  height: 120px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
 .joystick-ring {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: rgba(255,255,255,0.04);
-  border: 2px solid rgba(255,255,255,0.12);
-  backdrop-filter: blur(8px);
+  background: #0B0E13B3;
+  border: 1px solid var(--color-ink-600);
 }
-
 .joystick-knob {
-  width: 42px;
-  height: 42px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.12);
-  border: 2px solid rgba(255,255,255,0.2);
+  background: var(--color-fog);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.05s linear;
   position: relative;
   z-index: 2;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 14px #0008;
 }
-
 .knob-inner {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.5);
+  border: 2px solid #0B0E1333;
 }
-
-.joystick-label {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.25);
-  font-family: 'JetBrains Mono', monospace;
-}
+.joystick-label { display: none; }
 </style>
