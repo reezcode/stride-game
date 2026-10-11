@@ -17,7 +17,7 @@ const t = (n: number) => n * TILE
 
 export type Floor =
   | 'raised' | 'lab' | 'wood' | 'carpet' | 'checker' | 'stone'
-  | 'concrete' | 'corridor' | 'carpetWarm' | 'carpetDark'
+  | 'concrete' | 'corridor' | 'carpetWarm' | 'carpetDark' | 'grass'
 
 export interface Room {
   id: string
@@ -53,7 +53,7 @@ export const rooms: Room[] = [
   // Kost Melati
   { id: 'kost-7',      name: tr('Room 7 · Laras', 'Kamar 7 · Laras'),   x: 53, y: 21, w: 10, h: 6, floor: 'lab',      dim: true },
   { id: 'kost-8',      name: tr('Room 8 · Ayu', 'Kamar 8 · Ayu'),     x: 64, y: 21, w: 12, h: 6, floor: 'lab',      dim: true },
-  { id: 'kost-yard',   name: tr('Courtyard', 'Halaman'),        x: 53, y: 28, w: 23, h: 3, floor: 'concrete', dim: true },
+  { id: 'kost-yard',   name: tr('Courtyard', 'Halaman'),        x: 53, y: 28, w: 23, h: 3, floor: 'grass',    dim: true },
   { id: 'kost-warung', name: tr('Pak Jo\'s Warung', 'Warung Pak Jo'), x: 53, y: 32, w: 23, h: 5, floor: 'stone',    dim: true },
 
   // Campus
@@ -189,6 +189,7 @@ export type PropKind =
   | 'boxes' | 'bookshelf' | 'kiosk' | 'elevator' | 'bench' | 'screenWall'
   | 'podium' | 'trophyCase' | 'longTable' | 'bin' | 'wetSign' | 'hazard'
   | 'bed' | 'wardrobe' | 'tv' | 'bike' | 'stall' | 'mat' | 'spot'
+  | 'window' | 'frame' | 'lamp' | 'tree' | 'path' | 'shoes'
 
 export interface Prop {
   kind: PropKind
@@ -201,7 +202,7 @@ export interface Prop {
   room?: string
 }
 
-const NON_SOLID = new Set<PropKind>(['cableTray', 'gateFlap', 'logo', 'rug', 'hazard', 'whiteboard', 'whiteboardV', 'videoWall', 'screenWall', 'corkboard', 'elevator', 'mat'])
+const NON_SOLID = new Set<PropKind>(['cableTray', 'gateFlap', 'logo', 'rug', 'hazard', 'whiteboard', 'whiteboardV', 'videoWall', 'screenWall', 'corkboard', 'elevator', 'mat', 'window', 'frame', 'path', 'shoes'])
 
 const P: Prop[] = []
 let seed = 1
@@ -433,6 +434,34 @@ for (const [i, x] of [1960, 2110, 2260].entries()) {
 add('bin', 2400, 1040, 16, 16)
 plant(2412, 1164, 18)
 
+// Dressing: windows with moonlight, lamps, pictures, the courtyard ────────
+const wallY = (row: number) => (row - 1) * TILE + 14            // on the face of the wall above a room that starts at `row`
+const win = (x: number, row: number, w = 60) => add('window', x, wallY(row), w, 16)
+const pic = (x: number, row: number) => add('frame', x, wallY(row) + 1, 24, 14)
+const lamp = (cx: number, cy: number) => add('lamp', cx - 9, cy - 9, 18, 18)
+
+win(1730, 1); win(1900, 1); pic(1996, 1); lamp(2032, 104)             // Laras's room
+win(2124, 1, 50); win(2316, 1, 30); lamp(2096, 172)                  // your room
+pic(1760, 7); pic(2120, 7); pic(2372, 7)                             // hallway
+win(2000, 10); pic(1716, 10); lamp(1716, 352)                        // living room
+win(2224, 10, 40)                                                    // kitchen
+add('shoes', 1960, 516, 26, 14)
+
+win(1890, 21); pic(1722, 21)                                         // room 7
+win(2240, 21); lamp(2412, 836)                                       // room 8
+add('path', 1984, 896, 160, 96)                                      // courtyard, to the warung
+add('path', 1812, 896, 88, 44, { seed: 2 }); add('path', 2196, 896, 88, 44, { seed: 3 })
+add('tree', 1760, 946, 20, 20)
+add('tree', 2296, 958, 20, 20, { seed: 5 })
+lamp(2330, 908)
+add('shoes', 1900, 874, 26, 14, { seed: 4 }); add('shoes', 2284, 874, 26, 14, { seed: 6 })
+pic(2040, 32); pic(2330, 32); lamp(1712, 1170)                       // warung
+
+win(2600, 1); win(2796, 1); pic(2720, 1); lamp(2582, 152)            // faculty office
+win(2990, 1); win(3176, 1)                                           // student affairs
+pic(2880, 8); pic(3190, 8)                                           // corridor
+pic(2620, 11); pic(3130, 11); lamp(2580, 384); lamp(3278, 484)       // commons
+
 // Campus ─────────────────────────────────────────────────────────────────
 add('desk', 2620, 60, 112, 30, { face: 's', n: 2, seed: 700 })
 chair(2676, 106, 'n')
@@ -570,15 +599,19 @@ export const interactables: Interactable[] = [
 ]
 
 /** People standing around the world. Painted by the renderer, not the static layer. */
-export interface Npc { id: string; x: number; y: number; shirt: string; hair: string; skin: string; long?: boolean }
+export interface Npc {
+  id: string; x: number; y: number
+  shirt: string; hair: string; skin: string; pants?: string
+  long?: boolean; style?: 'short' | 'long' | 'bun' | 'cap' | 'hood'; glasses?: boolean; apron?: boolean
+}
 
 export const npcs: Npc[] = [
   { id: 'npc-ayu',   x: 2239, y: 792,  shirt: '#6A7FB8', hair: '#2B1D16', skin: '#D0A07A', long: true },
-  { id: 'npc-pakjo', x: 1779, y: 1110, shirt: '#E6E1D6', hair: '#8C8780', skin: '#B98458' },
-  { id: 'npc-ibu',   x: 1920, y: 448,  shirt: '#8C5A6E', hair: '#5A534E', skin: '#D2A380', long: true },
-  { id: 'npc-yati',  x: 2100, y: 944,  shirt: '#5E8C78', hair: '#6A645E', skin: '#C6905F' },
-  { id: 'npc-dewi',  x: 2800, y: 128,  shirt: '#3E4E78', hair: '#231814', skin: '#D9A77E', long: true },
-  { id: 'npc-min',   x: 2620, y: 298,  shirt: '#2F3A4A', hair: '#17130F', skin: '#B98458' },
+  { id: 'npc-pakjo', x: 1779, y: 1110, shirt: '#C8442F', hair: '#8C8780', skin: '#B98458', apron: true },
+  { id: 'npc-ibu',   x: 1920, y: 448,  shirt: '#8C5A6E', hair: '#5A534E', skin: '#D2A380', style: 'bun', pants: '#5E4A52' },
+  { id: 'npc-yati',  x: 2100, y: 944,  shirt: '#5E8C78', hair: '#6A645E', skin: '#C6905F', style: 'bun', glasses: true, pants: '#4A5E56' },
+  { id: 'npc-dewi',  x: 2800, y: 128,  shirt: '#3E4E78', hair: '#231814', skin: '#D9A77E', long: true, glasses: true },
+  { id: 'npc-min',   x: 2620, y: 298,  shirt: '#3A4A6A', hair: '#17130F', skin: '#B98458', style: 'cap', pants: '#1E2430' },
 ]
 
 export const SPAWN = { x: 2256, y: 130 }   // your room, at home

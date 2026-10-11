@@ -12,7 +12,7 @@ export type CharId =
   | 'ibu' | 'yati' | 'dewi' | 'min' | 'unknown' | 'warden'
 export type Backdrop = 'day' | 'night' | 'dark' | 'art'
 /** Drawn scenes, see game/illustrations.ts */
-export type ArtId = 'party' | 'laptop' | 'alone' | 'funeral' | 'homeNight' | 'kost' | 'campus' | 'tower'
+export type ArtId = 'party' | 'laptop' | 'alone' | 'groupchat' | 'train' | 'funeral' | 'homeNight' | 'kost' | 'campus' | 'tower'
 export type Motif = 'warm' | 'grief' | 'dread' | 'resolve'
 
 export type Line =
@@ -123,12 +123,15 @@ export const prologue: Line[] = [
   yourPhone.them('laras', "just exams. don't worry about me kak", 'lagi ujian aja. jangan khawatirin aku kak'),
 
   CARD('Week three', 'Minggu ketiga'),
+  ART('groupchat', ['Campus group chat · 214 members', 'Grup kampus · 214 anggota']),
   N('Her receipts appear in the campus group chat. The pharmacy. The counselling clinic. Someone adds a laughing emoji. Then everyone does.',
     'Struk-struknya muncul di grup kampus. Apotek. Klinik konseling. Seseorang menambahkan emoji tertawa. Lalu semua orang ikut.'),
+  ART('alone', ['Kost Melati · room 7', 'Kost Melati · kamar 7']),
   N('She writes to PayVault support four times. Each ticket is closed within a minute, by an admin account that belongs to no admin.',
     'Dia menulis ke layanan PayVault empat kali. Setiap tiket ditutup dalam semenit, oleh akun admin yang bukan milik admin mana pun.'),
   yourPhone.them('laras', 'kak are you awake', 'kak udah tidur?', ['02:07', '02.07']),
   yourPhone.them('laras', 'never mind. sleep well. sunday dinner was nice', 'gapapa. met tidur. makan malam minggu kemarin enak', ['02:19', '02.19']),
+  ART('train', ['The morning train · 07:02', 'Kereta pagi · 07.02']),
   N('You see it at seven, on the train. You call. It rings out.', 'Kamu baru membacanya pukul tujuh, di kereta. Kamu menelepon. Tidak diangkat.'),
 
   DARK,
@@ -327,6 +330,10 @@ export interface Puzzle {
   mode: 'pick' | 'order'
   layout: 'messages' | 'compare' | 'fields' | 'list'
   columns?: [string, string]
+  /** The hands-on version. Without it the puzzle falls back to a plain pick or order list. */
+  play?: 'sort' | 'lens' | 'drag' | 'redact' | 'flood' | 'keys'
+  /** keys: who holds what, and which of it they should not. */
+  board?: { name: string; role: string; keys: { text: string; excess: boolean }[] }[]
   mark: string          // label for a picked item, e.g. "Not her"
   items: PuzzleItem[]   // order mode: listed in the correct order
   lesson: string        // closes the puzzle, and names the idea
@@ -337,10 +344,10 @@ const I = (pick: boolean, en: string, id: string, why: Pair, sub?: Pair, other?:
 
 export const puzzles: Puzzle[] = [
   {
-    id: 'p-spoof', place: 'home', letter: 'S', mode: 'pick', layout: 'messages',
+    id: 'p-spoof', place: 'home', letter: 'S', mode: 'pick', layout: 'messages', play: 'sort',
     title: tr('Was it her?', 'Benarkah itu dia?'),
-    brief: tr('The family tablet still has three weeks of messages from Laras. You answered every one of them. Mark the ones she never wrote.',
-              'Tablet keluarga masih menyimpan pesan Laras selama tiga minggu. Semuanya kamu balas. Tandai pesan yang tidak pernah dia tulis.'),
+    brief: tr('The family tablet still has three weeks of messages from Laras. You answered every one of them. Go through them again, one at a time, and sort out the ones she never wrote.',
+              'Tablet keluarga masih menyimpan pesan Laras selama tiga minggu. Semuanya kamu balas. Telusuri lagi satu per satu, dan pisahkan pesan yang tidak pernah dia tulis.'),
     know: [
       tr('She never used capital letters.', 'Dia tidak pernah memakai huruf kapital.'),
       tr('She called you "kak", always.', 'Dia selalu memanggilmu "kak".'),
@@ -359,10 +366,10 @@ export const puzzles: Puzzle[] = [
                'Tiga pesan yang kamu balas ternyata bukan darinya. Seseorang memakai namanya, dan aplikasi tidak bisa membedakannya. Itulah spoofing: berpura-pura menjadi orang lain.'),
   },
   {
-    id: 'p-tamper', place: 'kost', letter: 'T', mode: 'pick', layout: 'compare',
+    id: 'p-tamper', place: 'kost', letter: 'T', mode: 'pick', layout: 'compare', play: 'lens',
     title: tr('Two ledgers', 'Dua catatan'),
-    brief: tr('Laras kept her own spending book by hand. Next to it is what PayVault says happened. Mark every line where the two no longer agree.',
-              'Laras mencatat pengeluarannya sendiri dengan tangan. Di sebelahnya ada versi PayVault. Tandai setiap baris yang tidak lagi cocok.'),
+    brief: tr('Laras kept her own spending book by hand. The PayVault statement is laid over it. Read through to her handwriting, and mark every line where the two no longer agree.',
+              'Laras mencatat pengeluarannya sendiri dengan tangan. Mutasi PayVault ditumpuk di atasnya. Baca tulisan tangannya di baliknya, dan tandai setiap baris yang tidak lagi cocok.'),
     know: [
       tr('Her book was written on the day, in pen.', 'Bukunya ditulis pada hari yang sama, dengan pulpen.'),
       tr('A changed sign, name or amount is still a change.', 'Tanda, nama, atau jumlah yang berubah tetaplah perubahan.'),
@@ -381,10 +388,10 @@ export const puzzles: Puzzle[] = [
                'Angka-angkanya diubah belakangan, dan sistem menerimanya tanpa memeriksa. Itulah tampering: mengubah data atau perilaku yang seharusnya tidak berubah.'),
   },
   {
-    id: 'p-trace', place: 'kost', letter: 'R', mode: 'order', layout: 'list',
+    id: 'p-trace', place: 'kost', letter: 'R', mode: 'order', layout: 'list', play: 'drag',
     title: tr('The night of the codes', 'Malam penuh kode'),
-    brief: tr('A shoebox of sticky notes, one for every thing that happened that night, out of order. PayVault kept no record of it, so rebuild one. Tap the notes in the order they happened.',
-              'Sekotak kertas tempel, satu untuk setiap kejadian malam itu, tidak berurutan. PayVault tidak menyimpan catatannya, jadi susun ulang. Ketuk kertas sesuai urutan kejadiannya.'),
+    brief: tr('A shoebox of sticky notes, one for every thing that happened that night, out of order. PayVault kept no record of it, so rebuild one. Drag the notes onto the timeline in the order they happened.',
+              'Sekotak kertas tempel, satu untuk setiap kejadian malam itu, tidak berurutan. PayVault tidak menyimpan catatannya, jadi susun ulang. Seret kertas ke garis waktu sesuai urutan kejadiannya.'),
     know: [
       tr('A code has to be guessed before anyone can log in.', 'Kode harus tertebak dulu sebelum seseorang bisa masuk.'),
       tr('Whoever is inside locks the owner out before doing anything loud.', 'Siapa pun yang sudah masuk akan mengunci pemiliknya dulu sebelum berbuat sesuatu yang mencolok.'),
@@ -402,10 +409,10 @@ export const puzzles: Puzzle[] = [
                'Tanpa log yang bisa dipercaya, yang ada hanya ucapannya melawan mesin, dan mesin yang menang. Celah itu punya nama: repudiation. Obatnya adalah catatan yang tidak bisa diubah atau dihapus siapa pun.'),
   },
   {
-    id: 'p-leak', place: 'campus', letter: 'I', mode: 'pick', layout: 'fields',
+    id: 'p-leak', place: 'campus', letter: 'I', mode: 'pick', layout: 'fields', play: 'redact',
     title: tr('What the receipt gave away', 'Yang dibocorkan struk itu'),
-    brief: tr('This is the receipt page that was posted in the group. Anyone with the link could open it. Mark every field a stranger never needed to see.',
-              'Inilah halaman struk yang disebar di grup. Siapa pun yang punya tautannya bisa membukanya. Tandai setiap kolom yang tidak perlu dilihat orang asing.'),
+    brief: tr('This is the receipt page that was posted in the group. Anyone with the link could open it. Take a marker and black out everything a stranger never needed to see.',
+              'Inilah halaman struk yang disebar di grup. Siapa pun yang punya tautannya bisa membukanya. Ambil spidol dan hitamkan semua yang tidak perlu dilihat orang asing.'),
     know: [
       tr('A receipt has to prove a payment happened. Nothing more.', 'Struk hanya perlu membuktikan bahwa pembayaran terjadi. Tidak lebih.'),
       tr('Anything that points to a person is worth hiding.', 'Apa pun yang menunjuk ke seseorang layak disembunyikan.'),
@@ -425,10 +432,31 @@ export const puzzles: Puzzle[] = [
                'Halaman itu menampilkan jauh lebih banyak daripada yang dibutuhkan sebuah struk, kepada siapa pun yang membukanya. Itulah information disclosure: data sampai ke orang yang tidak berhak melihatnya.'),
   },
   {
-    id: 'p-priv', place: 'campus', letter: 'E', mode: 'pick', layout: 'list',
+    id: 'p-priv', place: 'campus', letter: 'E', mode: 'pick', layout: 'list', play: 'keys',
+    board: [
+      { name: 'USR-0042', role: tr('customer · Laras', 'pelanggan · Laras'), keys: [
+        { text: tr('open own ticket', 'buat tiket sendiri'), excess: false },
+        { text: tr('read own tickets', 'baca tiket sendiri'), excess: false },
+      ] },
+      { name: 'USR-7731', role: tr('customer', 'pelanggan'), keys: [
+        { text: tr('open own ticket', 'buat tiket sendiri'), excess: false },
+        { text: tr('close any ticket', 'tutup tiket siapa pun'), excess: true },
+        { text: tr('freeze wallets', 'bekukan dompet'), excess: true },
+        { text: tr('read all tickets', 'baca semua tiket'), excess: true },
+      ] },
+      { name: 'cs-agent-12', role: tr('support agent', 'agen support'), keys: [
+        { text: tr('reply to tickets', 'balas tiket'), excess: false },
+        { text: tr('export all customers', 'ekspor semua pelanggan'), excess: true },
+      ] },
+      { name: 'admin-ratna', role: 'admin', keys: [
+        { text: tr('close any ticket', 'tutup tiket siapa pun'), excess: false },
+        { text: tr('freeze wallets', 'bekukan dompet'), excess: false },
+        { text: tr('export reports', 'ekspor laporan'), excess: false },
+      ] },
+    ],
     title: tr('Who closed her tickets?', 'Siapa yang menutup tiketnya?'),
-    brief: tr("In the complaint file is the activity trail Laras printed from her four support tickets. Mark every action the account's role should never have allowed.",
-              'Di dalam berkas pengaduan ada jejak aktivitas yang dicetak Laras dari keempat tiket bantuannya. Tandai setiap tindakan yang seharusnya tidak boleh dilakukan oleh peran akun tersebut.'),
+    brief: tr('In the complaint file is the access list Laras printed with her four support tickets: who holds which keys. Take away every key an account should never have been holding, and nothing else.',
+              'Di dalam berkas pengaduan ada daftar akses yang dicetak Laras bersama keempat tiket bantuannya: siapa memegang kunci apa. Cabut setiap kunci yang seharusnya tidak dipegang sebuah akun, dan jangan yang lain.'),
     know: [
       tr('Customers can open and read their own tickets.', 'Pelanggan boleh membuat dan membaca tiketnya sendiri.'),
       tr('Support agents can reply. Only admins can close, freeze or export.', 'Agen support boleh membalas. Hanya admin yang boleh menutup, membekukan, atau mengekspor.'),
@@ -446,10 +474,10 @@ export const puzzles: Puzzle[] = [
                'Satu akun biasa mengerjakan pekerjaan admin, dan server tidak pernah bertanya apakah akun itu berhak. Itulah elevation of privilege: memperoleh hak yang tidak pernah diberikan.'),
   },
   {
-    id: 'p-flood', place: 'hq', letter: 'D', mode: 'pick', layout: 'list',
+    id: 'p-flood', place: 'hq', letter: 'D', mode: 'pick', layout: 'list', play: 'flood',
     title: tr('Hold the line', 'Tahan serbuannya'),
-    brief: tr('The reception console still controls the login gateway. The wardens are flooding it so nobody else can sign in tonight. Switch on only the rules that stop a flood without locking real people out.',
-              'Konsol resepsionis masih mengendalikan gerbang login. Para penjaga membanjirinya supaya tidak ada orang lain yang bisa masuk malam ini. Aktifkan hanya aturan yang menghentikan banjir tanpa mengunci pengguna asli.'),
+    brief: tr('The reception console still controls the login gateway, and the wardens are flooding it live. Keep the server standing and real people signing in until the wave passes.',
+              'Konsol resepsionis masih mengendalikan gerbang login, dan para penjaga sedang membanjirinya saat ini juga. Jaga server tetap hidup dan pengguna asli tetap bisa masuk sampai gelombangnya lewat.'),
     know: [
       tr('Slowing an attacker down is enough. They need thousands of tries.', 'Memperlambat penyerang sudah cukup. Dia butuh ribuan percobaan.'),
       tr("A rule that locks out the real owner does the attacker's job for them.", 'Aturan yang mengunci pemilik asli justru mengerjakan tugas penyerang.'),

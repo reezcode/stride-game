@@ -223,8 +223,10 @@ function paintArt(now: number) {
     if (c.width !== W || c.height !== H) { c.width = W; c.height = H }
     const g = c.getContext('2d')!
     // cover, anchored a little above centre so faces survive a tall phone crop
-    const k = Math.max(W / ART_W, H / ART_H)
-    g.setTransform(k, 0, 0, k, (W - ART_W * k) / 2, (H - ART_H * k) * 0.4)
+    // a slow push-in and drift, so a still picture keeps breathing
+    const tt = now / 1000
+    const k = Math.max(W / ART_W, H / ART_H) * (1.035 + Math.sin(tt * 0.11) * 0.02)
+    g.setTransform(k, 0, 0, k, (W - ART_W * k) / 2 + Math.sin(tt * 0.07) * 10 * dpr, (H - ART_H * k) * 0.4 + Math.cos(tt * 0.09) * 6 * dpr)
     drawArt(g, id, now / 1000, store.playerColor)
   }
   raf = requestAnimationFrame(paintArt)

@@ -1,9 +1,9 @@
 import { paintStatic, CAP_H } from './paintStatic'
 import {
   WORLD_W, WORLD_H, TILE, COLS, props, doors, rooms, roomById, ceilingLights, interactables,
-  isWallTile, type Room,
+  isWallTile, roomAt, type Room,
 } from './world'
-import { drawDetective, drawCivilian, rr, type Facing, type Ctx } from './sprites'
+import { drawDetective, drawCivilian, rr, type Facing, type Ctx, type CivilianLook } from './sprites'
 import { drawWarden } from './portraits'
 
 export type CaseStatus = 'breach' | 'visited' | 'solved'
@@ -23,7 +23,7 @@ export interface FrameState {
   allSolved: boolean
   wardens: { x: number; y: number; color: string; name: string; alert: boolean; stunned: boolean; near: boolean; lured: boolean }[]
   decoy: { x: number; y: number } | null
-  npcs: { x: number; y: number; shirt: string; hair: string; skin: string; long?: boolean; back?: boolean }[]
+  npcs: (CivilianLook & { x: number; y: number; back?: boolean })[]
   /** Everything outside the current zone is blacked out. */
   zone: { x: number; y: number; w: number; h: number }
 }
@@ -60,6 +60,8 @@ function buildEmissives(): Emissive[] {
       case 'crac':       out.push({ x: p.x + 13, y: cy, r: 16, color: '#7AE0B0', room: p.room, kind: 'crac' }); break
       case 'screenWall': out.push({ x: cx, y: p.y + p.h + 10, r: 170, color: '#E8E2D0', room: 'briefing', kind: 'screen' }); break
       case 'elevator':   out.push({ x: cx, y: p.y + 2, r: 18, color: '#F06A4A', room: 'lifts', kind: 'liftlight' }); break
+      case 'window':     out.push({ x: cx, y: p.y + p.h + 46, r: 96, color: '#8FB4E8', room: roomAt(cx, p.y + p.h + 40)?.id, kind: 'window' }); break
+      case 'lamp':       out.push({ x: cx, y: cy, r: 130, color: '#F2C879', room: p.room, kind: 'lamp' }); break
       case 'tv':         out.push({ x: cx, y: p.y + p.h + 14, r: 90, color: '#7FA6E8', room: p.room, kind: 'tv' }); break
       case 'stall':      out.push({ x: cx, y: p.y + p.h, r: 110, color: '#F2C879', room: p.room, kind: 'lamp' }); break
     }

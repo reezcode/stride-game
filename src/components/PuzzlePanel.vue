@@ -18,11 +18,13 @@
           <ul><li v-for="k in puzzle.know" :key="k">{{ k }}</li></ul>
         </aside>
 
-        <div v-if="puzzle.columns" class="cols-head">
+        <div v-if="puzzle.columns && (!puzzle.play || solved)" class="cols-head">
           <span>{{ puzzle.columns[0] }}</span><span>{{ puzzle.columns[1] }}</span>
         </div>
 
-        <ol :class="['items', puzzle.layout, { done: solved }]">
+        <component :is="GAMES[puzzle.play]" v-if="puzzle.play && !solved" ref="stage" :key="round" :puzzle="puzzle" class="stage" @result="onResult" />
+
+        <ol v-else :class="['items', puzzle.layout, { done: solved }]">
           <li v-for="i in shown" :key="i">
             <button type="button" class="item"
               :class="{ on: isOn(i), bad: reveal && !solved && isWrong(i), right: solved && puzzle.mode === 'pick' && puzzle.items[i].pick }"
@@ -54,10 +56,10 @@
           <button class="btn btn-ink" @click="finish">{{ $t('puzzle.done') }} <IconArrowRight :size="16" /></button>
         </template>
         <template v-else>
-          <span class="muted" :class="{ warn: !!feedback }">{{ feedback || (puzzle.mode === 'pick' ? $t('puzzle.pickHint') : $t('puzzle.orderHint')) }}</span>
+          <span class="muted" :class="{ warn: !!feedback }">{{ feedback || (puzzle.play ? '' : puzzle.mode === 'pick' ? $t('puzzle.pickHint') : $t('puzzle.orderHint')) }}</span>
           <div class="actions">
             <button class="btn btn-outline" @click="clear">{{ $t('puzzle.clear') }}</button>
-            <button class="btn btn-ink" :disabled="!canCheck" @click="check">{{ $t('puzzle.check') }}</button>
+            <button v-if="!selfJudging" class="btn btn-ink" :disabled="!canCheck" @click="check">{{ $t('puzzle.check') }}</button>
           </div>
         </template>
       </footer>
@@ -74,6 +76,16 @@ import { STRIDE_BY } from '@/game/stride'
 import { rng } from '@/game/sprites'
 import { sfx } from '@/game/audio'
 import { t } from '@/i18n'
+import SortGame from './games/SortGame.vue'
+import LensGame from './games/LensGame.vue'
+import DragGame from './games/DragGame.vue'
+import RedactGame from './games/RedactGame.vue'
+import FloodGame from './games/FloodGame.vue'
+import KeysGame from './games/KeysGame.vue'
+
+// Each game reports through @result. The ones that expose check() wait for the Check button;
+// the timed ones (sort, flood) judge themselves when they end.
+const GAMES = { sort: SortGame, lens: LensGame, drag: DragGame, redact: RedactGame, flood: FloodGame, keys: KeysGame }
 
 const props = defineProps<{ puzzle: Puzzle; place: string }>()
 const emit = defineEmits<{ close: []; solved: [xp: number] }>()
@@ -91,6 +103,9 @@ const attempts = ref(0)
 const feedback = ref('')
 const reveal = ref(false)
 const earned = ref(0)
+const round = ref(0)                       // bump to deal a game afresh
+const stage = ref<{ check?: () => void } | null>(null)
+const selfJudging = computed(() => props.puzzle.play === 'sort' || props.puzzle.play === 'flood')
 
 // Order puzzles are dealt shuffled (the same way each time); solved ones show the true order.
 const dealt = (() => {
@@ -108,7 +123,7 @@ const isWrong = (i: number) => props.puzzle.mode === 'pick'
   ? picked.value.includes(i) !== !!props.puzzle.items[i].pick
   : order.value.indexOf(i) !== i
 
-const canCheck = computed(() => (props.puzzle.mode === 'pick' ? picked.value.length > 0 : order.value.length === n))
+const canCheck = computed(() => !!props.puzzle.play || (props.puzzle.mode === 'pick' ? picked.value.length > 0 : order.value.length === n))
 const award = computed(() => {
   if (already && !earned.value) return t('puzzle.solved')
   return attempts.value <= 1 ? t('puzzle.firstTry', { xp: earned.value }) : t('puzzle.attempts', { n: attempts.value, xp: earned.value })
@@ -127,10 +142,25 @@ function toggle(i: number) {
 function clear() {
   picked.value = []; order.value = []
   feedback.value = ''; reveal.value = false
+  round.value++
+}
+
+function onResult(ok: boolean, note: string) {
+  attempts.value++
+  if (!ok) {
+    feedback.value = note
+    sfx.denied()
+    if (selfJudging.value) round.value++   // timed games start over from their Start screen
+    return
+  }
+  earned.value = store.solvePuzzle(props.puzzle.id, attempts.value)
+  solved.value = true
+  sfx.stamp()
 }
 
 function check() {
   if (!canCheck.value || solved.value) return
+  if (props.puzzle.play) { stage.value?.check?.(); return }
   attempts.value++
   const items = props.puzzle.items
   let ok: boolean
@@ -195,6 +225,7 @@ onUnmounted(() => { window.removeEventListener('keydown', onKey, true); sfx.clos
 .know ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.5; display: grid; gap: 2px; }
 
 .cols-head { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 14px 6px; font-size: 12px; font-weight: 700; color: var(--color-pen-3); }
+.stage { margin-top: 2px; }
 .items { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .items.fields { grid-template-columns: repeat(2, 1fr); }
 .item {

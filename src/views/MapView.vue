@@ -266,7 +266,7 @@ setLocks(store.allSolved)
 
 // ── Story: scenes, wardens, the confrontation ──
 
-const FIGURE = { x: 1398, y: 1010, shirt: '#4A4F5A', hair: '#1B1B1F', skin: '#CFA07A', back: true }   // beside the podium, watching the wall screen
+const FIGURE = { x: 1398, y: 1010, shirt: '#4A4F5A', hair: '#1B1B1F', skin: '#CFA07A', glasses: true, back: true }   // beside the podium, watching the wall screen
 let wardens: Warden[] = makeWardens(id => !store.wardensDown.includes(id) && !store.getCase(id)?.solved)
 const wardenOf = (scenarioId?: string) => wardens.find(w => w.def.id === scenarioId)
 let lastLevel = store.level

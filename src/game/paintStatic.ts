@@ -6,8 +6,8 @@ import { rng, rr, shade, withShadow, type Ctx } from './sprites'
 
 export const CAP_H = 12 // top-of-wall band; the rest of a wall tile shows its face
 
-const WALL_MOUNTED = new Set(['whiteboard', 'videoWall', 'screenWall', 'elevator', 'vault'])
-const DECALS = new Set(['rug', 'logo', 'hazard'])
+const WALL_MOUNTED = new Set(['whiteboard', 'videoWall', 'screenWall', 'elevator', 'vault', 'window', 'frame'])
+const DECALS = new Set(['rug', 'logo', 'hazard', 'path', 'shoes', 'mat'])
 
 // Paint colour of the wall faces you see from inside each room.
 const WALL_PAINT: Record<string, string> = {
@@ -160,6 +160,16 @@ function paintFloor(g: Ctx, r: Room) {
       g.fillStyle = 'rgba(90,84,74,0.55)'
       for (let tx = x; tx <= x + w; tx += s) g.fillRect(tx - 0.5, y, 1, h)
       for (let ty = y; ty <= y + h; ty += s) g.fillRect(x, ty - 0.5, w, 1)
+      break
+    }
+    case 'grass': {
+      g.fillStyle = '#35503A'; g.fillRect(x, y, w, h)
+      speckle(g, x, y, w, h, 61, 0.35, ['#2C4632', '#3F5E44', '#476A4A', '#2A4030'], 2)
+      g.strokeStyle = 'rgba(120,170,110,0.35)'; g.lineWidth = 1
+      for (let i = 0; i < w * h / 260; i++) {
+        const tx = x + R() * w, ty = y + R() * h
+        g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx - 2, ty - 5); g.moveTo(tx, ty); g.lineTo(tx + 2, ty - 6); g.stroke()
+      }
       break
     }
     case 'concrete': {
@@ -831,6 +841,62 @@ function paintProp(g: Ctx, p: Prop) {
       withShadow(g, 10, 5, 0.5, () => { g.fillStyle = '#2F2620'; rr(g, x, y, w, h, 3); g.fill() })
       g.fillStyle = '#463830'; rr(g, x + 2, y + 2, w - 4, h - 4, 2); g.fill()
       for (let k = 0; k < 3; k++) paper(g, x + 20 + k * 55, y + 10, 18, 22, R() * 0.3 - 0.15, '#D8C7A0')
+      break
+    }
+    case 'window': {
+      g.fillStyle = '#20252E'; g.fillRect(x - 2, y - 2, w + 4, h + 4)
+      const pane = g.createLinearGradient(0, y, 0, y + h)
+      pane.addColorStop(0, '#22385C'); pane.addColorStop(1, '#4A6EA0')
+      g.fillStyle = pane; g.fillRect(x, y, w, h)
+      g.fillStyle = 'rgba(255,255,255,0.22)'; g.fillRect(x + 3, y + 2, w * 0.28, 2)
+      g.fillStyle = '#20252E'; g.fillRect(x + w / 2 - 1, y, 2, h)
+      g.fillStyle = '#C9CED6'; g.fillRect(x - 3, y + h + 1, w + 6, 2)
+      break
+    }
+    case 'frame': {
+      const tone = ['#C8442F', '#3567B4', '#E2B33C', '#3D8A5C', '#8FC7D9'][(p.seed ?? 0) % 5]
+      g.fillStyle = '#3A2F22'; g.fillRect(x, y, w, h)
+      g.fillStyle = '#EFE9DC'; g.fillRect(x + 2, y + 2, w - 4, h - 4)
+      g.fillStyle = tone; g.fillRect(x + 4, y + 4, w - 8, h - 8)
+      g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + 5, y + 5, (w - 10) * 0.4, 2)
+      break
+    }
+    case 'lamp': {
+      const cx = x + w / 2, cy = y + h / 2
+      g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(cx + 1, cy + 3, w / 2, h / 2 - 2, 0, 0, Math.PI * 2); g.fill()
+      g.fillStyle = '#2A2D31'; g.beginPath(); g.arc(cx, cy, w / 2, 0, Math.PI * 2); g.fill()
+      const sh = g.createRadialGradient(cx, cy, 1, cx, cy, w / 2 - 1.5)
+      sh.addColorStop(0, '#FFF6DC'); sh.addColorStop(1, '#E9C98A')
+      g.fillStyle = sh; g.beginPath(); g.arc(cx, cy, w / 2 - 2, 0, Math.PI * 2); g.fill()
+      break
+    }
+    case 'tree': {
+      const cx = x + w / 2, cy = y + h / 2
+      g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(cx + 4, cy + 8, 46, 34, 0, 0, Math.PI * 2); g.fill()
+      g.fillStyle = '#4A3828'; g.beginPath(); g.arc(cx, cy, 8, 0, Math.PI * 2); g.fill()
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2 + R(), d = 14 + R() * 18
+        g.fillStyle = ['#2C4A34', '#35583C', '#3F6846'][i % 3]
+        g.beginPath(); g.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d - 4, 16 + R() * 8, 0, Math.PI * 2); g.fill()
+      }
+      for (let i = 0; i < 14; i++) { g.fillStyle = 'rgba(150,200,130,0.35)'; g.beginPath(); g.arc(cx - 30 + R() * 60, cy - 34 + R() * 56, 2 + R() * 2, 0, Math.PI * 2); g.fill() }
+      break
+    }
+    case 'path': {
+      for (let py = y + 3; py < y + h - 8; py += 22) for (let px = x + 3 + ((py - y) % 44 > 20 ? 12 : 0); px < x + w - 14; px += 30) {
+        const v = R() * 16 - 8
+        g.fillStyle = `rgb(${128 + v},${128 + v},${122 + v})`
+        rr(g, px, py, 24 + R() * 3, 17, 4); g.fill()
+        g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(px + 2, py + 1, 16, 1)
+      }
+      break
+    }
+    case 'shoes': {
+      const cols = ['#3567B4', '#C8442F', '#2B2F38', '#E9E4D6']
+      for (let i = 0; i < 2; i++) {
+        g.fillStyle = cols[((p.seed ?? 0) + i) % 4]
+        rr(g, x + i * 14, y, 5, 12, 2.5); g.fill(); rr(g, x + 6 + i * 14, y + 1, 5, 12, 2.5); g.fill()
+      }
       break
     }
     case 'bed': {
